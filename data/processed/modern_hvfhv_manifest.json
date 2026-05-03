@@ -1,0 +1,19 @@
+{
+  "source": "NYC TLC High Volume For-Hire Vehicle Trip Records",
+  "url_template": "https://d37ci6vzurychx.cloudfront.net/trip-data/fhvhv_tripdata_{year:04d}-{month:02d}.parquet",
+  "requested_start": "2023-05",
+  "requested_end": "2024-03",
+  "processed_start": "2023-05",
+  "processed_end": "2024-03",
+  "companies": {
+    "HV0003": "Uber"
+  },
+  "raw_files_kept": false,
+  "tables": {
+    "modern_hvfhv_daily_by_company": 2618,
+    "modern_hvfhv_daily_by_borough": 15843,
+    "modern_hvfhv_daily_by_zone": 23229,
+    "modern_hvfhv_hourly_by_company": 62773,
+    "modern_hvfhv_weekday_hour_by_company": 170
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "sources": {
+    "five_thirty_eight_2014_gps": 10,
+    "five_thirty_eight_2015_foil": 20,
+    "tlc_fhv_uber_bases": 30,
+    "tlc_hvfhv_uber": 40
+  },
+  "notes": [
+    "2014 FiveThirtyEight data has pickup latitude/longitude but no TLC zone, so borough is Unknown in unified borough tables.",
+    "2015 overlap is de-duplicated by preferring public TLC FHV Uber-base records over FiveThirtyEight FOIL records when both exist for the same date/location.",
+    "2019+ uses TLC High Volume FHV records filtered to HV0003, Uber."
+  ],
+  "tables": {
+    "unified_uber_daily_by_company": 4291,
+    "unified_uber_daily_by_borough": 24246,
+    "unified_uber_daily_by_zone": 1055476,
+    "unified_uber_hourly_by_company": 102938,
+    "unified_uber_annual_summary": 13
+  }
+}

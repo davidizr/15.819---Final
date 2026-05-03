@@ -1,0 +1,19 @@
+{
+  "source_repo": "https://github.com/fivethirtyeight/uber-tlc-foil-response",
+  "source_dir": "data_source\\uber-tlc-foil-response",
+  "processed_dir": "data\\processed",
+  "dashboard_dir": "data\\processed\\dashboard",
+  "tables": {
+    "uber_2014_trips": 4534327,
+    "uber_2014_daily_by_base": 915,
+    "uber_2014_hourly_by_base": 21852,
+    "uber_2014_weekday_hour_by_base": 840,
+    "uber_2015_trips": 14270479,
+    "uber_2015_daily_by_zone": 44551,
+    "uber_2015_daily_by_borough": 1161,
+    "uber_2015_daily_by_dispatch_base": 1146,
+    "uber_2015_daily_by_affiliated_base": 31848,
+    "uber_jan_feb_2015_daily_by_base": 354,
+    "fhv_2015_daily_by_base": 26181
+  }
+}

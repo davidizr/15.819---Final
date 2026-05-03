@@ -1,0 +1,27 @@
+{
+  "source": "NYC TLC For-Hire Vehicle Trip Records",
+  "url_template": "https://d37ci6vzurychx.cloudfront.net/trip-data/fhv_tripdata_{year:04d}-{month:02d}.parquet",
+  "requested_start": "2019-01",
+  "requested_end": "2019-01",
+  "processed_start": "2019-01",
+  "processed_end": "2019-01",
+  "company": "Uber",
+  "base_codes": {
+    "B02512": "Unter",
+    "B02598": "Hinter",
+    "B02617": "Weiter",
+    "B02682": "Schmecken",
+    "B02764": "Danach-NY",
+    "B02765": "Grun",
+    "B02835": "Dreist",
+    "B02836": "Drinnen"
+  },
+  "raw_files_kept": false,
+  "tables": {
+    "gap_fhv_uber_daily_by_company": 1493,
+    "gap_fhv_uber_daily_by_borough": 8224,
+    "gap_fhv_uber_daily_by_zone": 239831,
+    "gap_fhv_uber_hourly_by_company": 35779,
+    "gap_fhv_uber_weekday_hour_by_company": 168
+  }
+}

@@ -1,0 +1,31 @@
+{
+  "source": "NYC TLC High Volume For-Hire Vehicle Trip Records",
+  "table": "modern_hvfhv_daily_by_zone",
+  "requested_start": "2025-01",
+  "requested_end": "2026-03",
+  "processed_months": [
+    "2025-01",
+    "2025-02",
+    "2025-03",
+    "2025-04",
+    "2025-05",
+    "2025-06",
+    "2025-07",
+    "2025-08",
+    "2025-09",
+    "2025-10",
+    "2025-11",
+    "2026-01",
+    "2026-02",
+    "2026-03"
+  ],
+  "skipped_months": [
+    "2025-12"
+  ],
+  "failed_months": {},
+  "companies": {
+    "HV0003": "Uber"
+  },
+  "raw_files_kept": false,
+  "rows": 675423
+}

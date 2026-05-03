@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python scripts/seed_nyc_event_calendar.py)",
+      "Bash(python -c \"import pandas as pd; df = pd.read_csv\\(r'c:\\\\Users\\\\David\\\\MIT Dropbox\\\\David Izrailov\\\\MIT\\\\Academics\\\\Spring\\\\Product\\\\Assignment\\\\5\\\\data\\\\processed\\\\dashboard\\\\unified\\\\unified_uber_daily_by_borough.csv', nrows=3\\); print\\(df.columns.tolist\\(\\)\\); print\\(df.dtypes\\)\")",
+      "Bash(python -c \"import ast; ast.parse\\(open\\(r'c:\\\\Users\\\\David\\\\MIT Dropbox\\\\David Izrailov\\\\MIT\\\\Academics\\\\Spring\\\\Product\\\\Assignment\\\\5\\\\streamlit_app.py'\\).read\\(\\)\\); print\\('syntax OK'\\)\")"
+    ]
+  }
+}

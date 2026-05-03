@@ -1,0 +1,35 @@
+{
+  "source": "NYC TLC For-Hire Vehicle Trip Records",
+  "table": "gap_fhv_uber_daily_by_zone",
+  "requested_start": "2018-01",
+  "requested_end": "2018-12",
+  "processed_months": [
+    "2018-01",
+    "2018-02",
+    "2018-03",
+    "2018-04",
+    "2018-05",
+    "2018-06",
+    "2018-07",
+    "2018-08",
+    "2018-09",
+    "2018-10",
+    "2018-11",
+    "2018-12"
+  ],
+  "skipped_months": [],
+  "failed_months": {},
+  "company": "Uber",
+  "base_codes": {
+    "B02512": "Unter",
+    "B02598": "Hinter",
+    "B02617": "Weiter",
+    "B02682": "Schmecken",
+    "B02764": "Danach-NY",
+    "B02765": "Grun",
+    "B02835": "Dreist",
+    "B02836": "Drinnen"
+  },
+  "raw_files_kept": false,
+  "rows": 380028
+}
