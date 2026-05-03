@@ -287,6 +287,109 @@ def with_period_rolling(df: pd.DataFrame) -> pd.DataFrame:
     return out
 
 
+def build_forecast(df_full: pd.DataFrame):
+    """Return (monthly_actuals, test_pred, future_forecast) DataFrames."""
+    from statsmodels.tsa.holtwinters import ExponentialSmoothing
+
+    daily = total_by_day(df_full)
+    daily["pickup_date"] = pd.to_datetime(daily["pickup_date"])
+    monthly = (
+        daily.set_index("pickup_date")["trips"]
+        .resample("MS")
+        .sum()
+    )
+
+    train_start = pd.Timestamp("2021-01-01")
+    test_start = pd.Timestamp("2025-01-01")
+    forecast_end = pd.Timestamp("2027-12-01")
+
+    monthly = monthly[monthly.index >= train_start]
+    if len(monthly) < 24:
+        return None, None, None
+
+    train = monthly[monthly.index < test_start]
+    test = monthly[monthly.index >= test_start]
+
+    model = ExponentialSmoothing(
+        train,
+        trend="add",
+        seasonal="mul",
+        seasonal_periods=12,
+        initialization_method="estimated",
+    ).fit(optimized=True)
+
+    n_test = len(test)
+    n_future = len(pd.date_range(
+        monthly.index.max() + pd.DateOffset(months=1),
+        forecast_end,
+        freq="MS",
+    ))
+    n_total = n_test + n_future
+
+    forecast_all = model.forecast(n_total)
+
+    test_pred = forecast_all.iloc[:n_test].reset_index()
+    test_pred.columns = ["pickup_date", "trips_forecast"]
+
+    future_start = monthly.index.max() + pd.DateOffset(months=1)
+    future = forecast_all[forecast_all.index >= future_start].reset_index()
+    future.columns = ["pickup_date", "trips_forecast"]
+
+    monthly_df = monthly.reset_index()
+    monthly_df.columns = ["pickup_date", "trips"]
+
+    return monthly_df, test_pred, future
+
+
+_GRANULARITY_FREQ = {"Daily": "D", "Weekly": "W", "Monthly": "ME", "Yearly": "YE"}
+
+
+def resample_to_granularity(df: pd.DataFrame, granularity: str) -> pd.DataFrame:
+    freq = _GRANULARITY_FREQ.get(granularity, "D")
+    daily = total_by_day(df)
+    if freq == "D":
+        return daily
+    daily["pickup_date"] = pd.to_datetime(daily["pickup_date"])
+    resampled = (
+        daily.set_index("pickup_date")["trips"]
+        .resample(freq)
+        .sum()
+        .reset_index()
+    )
+    return resampled
+
+
+def growth_stats(df: pd.DataFrame) -> dict:
+    daily = total_by_day(df)
+    daily["pickup_date"] = pd.to_datetime(daily["pickup_date"])
+    daily = daily.sort_values("pickup_date")
+    if daily.empty:
+        return {"wow": None, "mom": None, "yoy": None}
+
+    last = daily["pickup_date"].max()
+
+    def window_sum(start, end):
+        mask = (daily["pickup_date"] >= start) & (daily["pickup_date"] <= end)
+        return daily.loc[mask, "trips"].sum()
+
+    def pct(cur, prev):
+        return (cur - prev) / prev if prev else None
+
+    wow = pct(
+        window_sum(last - pd.Timedelta(days=6), last),
+        window_sum(last - pd.Timedelta(days=13), last - pd.Timedelta(days=7)),
+    )
+    mom = pct(
+        window_sum(last - pd.Timedelta(days=29), last),
+        window_sum(last - pd.Timedelta(days=59), last - pd.Timedelta(days=30)),
+    )
+    yoy = pct(
+        window_sum(last - pd.Timedelta(days=364), last),
+        window_sum(last - pd.Timedelta(days=729), last - pd.Timedelta(days=365)),
+    )
+    return {"wow": wow, "mom": mom, "yoy": yoy}
+
+
 def metric_row(df: pd.DataFrame, label_prefix: str) -> None:
     daily = total_by_day(df)
     total_trips = df["trips"].sum()
@@ -488,30 +591,70 @@ def event_impact_table(
     return pd.DataFrame(rows).sort_values(["Date", "Category", "Event"])
 
 
-def line_trend(df: pd.DataFrame, title: str) -> go.Figure:
-    trend = with_period_rolling(df)
+def line_trend(
+    df: pd.DataFrame,
+    title: str,
+    granularity: str = "Daily",
+    monthly_actuals=None,
+    test_pred=None,
+    future_forecast=None,
+) -> go.Figure:
     fig = go.Figure()
-    fig.add_trace(
-        go.Scatter(
-            x=trend["pickup_date"],
-            y=trend["trips"],
-            mode="lines",
-            name="Daily trips",
-            line=dict(color=GRAY, width=1.4),
+    if granularity == "Daily":
+        trend = with_period_rolling(df)
+        fig.add_trace(
+            go.Scatter(
+                x=trend["pickup_date"],
+                y=trend["trips"],
+                mode="lines",
+                name="Daily trips",
+                line=dict(color=GRAY, width=1.4),
+            )
         )
-    )
-    fig.add_trace(
-        go.Scatter(
-            x=trend["pickup_date"],
-            y=trend["rolling_7d"],
-            mode="lines",
-            name="7-day average",
-            line=dict(color=ACCENT_BLUE, width=3),
+        fig.add_trace(
+            go.Scatter(
+                x=trend["pickup_date"],
+                y=trend["rolling_7d"],
+                mode="lines",
+                name="7-day average",
+                line=dict(color=ACCENT_BLUE, width=3),
+            )
         )
-    )
+    else:
+        trend = resample_to_granularity(df, granularity)
+        fig.add_trace(
+            go.Bar(
+                x=trend["pickup_date"],
+                y=trend["trips"],
+                name=f"{granularity} trips",
+                marker_color=ACCENT_BLUE,
+            )
+        )
+
+    if test_pred is not None and not test_pred.empty:
+        fig.add_trace(
+            go.Scatter(
+                x=test_pred["pickup_date"],
+                y=test_pred["trips_forecast"],
+                mode="lines",
+                name="Model (test 2025–2026)",
+                line=dict(color=AQUA, width=2, dash="dot"),
+            )
+        )
+    if future_forecast is not None and not future_forecast.empty:
+        fig.add_trace(
+            go.Scatter(
+                x=future_forecast["pickup_date"],
+                y=future_forecast["trips_forecast"],
+                mode="lines",
+                name="Forecast (2026–2027)",
+                line=dict(color=POSITIVE_GREEN, width=2.5, dash="dash"),
+            )
+        )
+
     fig.update_layout(
         title=title,
-        height=360,
+        height=400,
         margin=dict(l=10, r=10, t=45, b=10),
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
         yaxis_title="Trips",
@@ -827,30 +970,44 @@ else:
 min_date = active["pickup_date"].min().date()
 max_date = active["pickup_date"].max().date()
 
-# Clear saved slider range whenever the source changes so stale dates don't bleed across datasets
-_SLIDER_KEY = "date_range_slider"
+# Clear saved preset whenever the source changes
+_PRESET_KEY = "date_range_preset"
 if st.session_state.get("_active_source") != source:
-    st.session_state.pop(_SLIDER_KEY, None)
+    st.session_state.pop(_PRESET_KEY, None)
     st.session_state["_active_source"] = source
+
+import datetime as _dt
+
+_today = max_date
+_presets = {
+    "1D": max_date - _dt.timedelta(days=1),
+    "1W": max_date - _dt.timedelta(weeks=1),
+    "1M": max_date - _dt.timedelta(days=30),
+    "4M": max_date - _dt.timedelta(days=120),
+    "6M": max_date - _dt.timedelta(days=183),
+    "1Y": max_date - _dt.timedelta(days=365),
+    "5Y": max_date - _dt.timedelta(days=365 * 5),
+    "YTD": _dt.date(_today.year, 1, 1),
+    "All": min_date,
+}
 
 _source_change = SOURCE_CHANGE_DATE.date()
 if min_date < _source_change <= max_date:
-    if st.sidebar.button(
-        "Post-2019 HVFHV only",
-        help="Snap date range to Feb 2019 onward, where all data comes from the consistent TLC HVFHV source.",
-    ):
-        st.session_state[_SLIDER_KEY] = (_source_change, max_date)
+    _presets["Post-2019"] = _source_change
 
-date_range = st.sidebar.slider(
+st.sidebar.markdown("**Date range**")
+_preset_labels = list(_presets.keys())
+_selected_preset = st.sidebar.radio(
     "Date range",
-    value=(min_date, max_date),
-    min_value=min_date,
-    max_value=max_date,
-    format="MMM DD, YYYY",
-    key=_SLIDER_KEY,
+    _preset_labels,
+    index=_preset_labels.index(st.session_state.get(_PRESET_KEY, "All")),
+    key=_PRESET_KEY,
+    horizontal=True,
+    label_visibility="collapsed",
 )
-start_date = pd.Timestamp(date_range[0])
-end_date = pd.Timestamp(date_range[1])
+
+start_date = pd.Timestamp(max(min_date, _presets[_selected_preset]))
+end_date = pd.Timestamp(max_date)
 
 group_volume = (
     active.groupby(group_label, as_index=False)["trips"]
@@ -878,11 +1035,50 @@ tab_overview, tab_timing, tab_geo, tab_context = st.tabs(
 with tab_overview:
     metric_row(filtered, "Selected")
 
+    # --- Growth stats row ---
+    gs = growth_stats(filtered)
+
+    def _fmt_growth(v):
+        if v is None:
+            return "N/A", None
+        color = POSITIVE_GREEN if v >= 0 else NEGATIVE_RED
+        arrow = "▲" if v >= 0 else "▼"
+        return f"{arrow} {abs(v):.1%}", color
+
+    g_wow, c_wow = _fmt_growth(gs["wow"])
+    g_mom, c_mom = _fmt_growth(gs["mom"])
+    g_yoy, c_yoy = _fmt_growth(gs["yoy"])
+
+    gcol1, gcol2, gcol3 = st.columns(3)
+    gcol1.metric("Week-over-Week (WoW)", g_wow)
+    gcol2.metric("Month-over-Month (MoM)", g_mom)
+    gcol3.metric("Year-over-Year (YoY)", g_yoy)
+
+    st.divider()
+
+    granularity = st.segmented_control(
+        "Granularity",
+        options=["Daily", "Weekly", "Monthly", "Yearly"],
+        default="Daily",
+        key="overview_granularity",
+        label_visibility="collapsed",
+    )
+
+    # --- Forecast (trained on full active dataset, 2021–2025) ---
+    _monthly_actuals, _test_pred, _future_forecast = build_forecast(active)
+
     left, right = st.columns((2, 1))
     with left:
         st.plotly_chart(
-            line_trend(filtered, "Daily Demand"),
-            width="stretch",
+            line_trend(
+                filtered,
+                f"{granularity} Demand",
+                granularity,
+                monthly_actuals=_monthly_actuals,
+                test_pred=_test_pred,
+                future_forecast=_future_forecast,
+            ),
+            use_container_width=True,
             config={"displayModeBar": False},
         )
         if source.startswith("All") and start_date <= SOURCE_CHANGE_DATE <= end_date:
@@ -906,54 +1102,15 @@ In 2018, NYC passed Local Law 149, requiring companies with ≥10,000 trips/day 
 | Financials | None | Fare, tips, driver pay |
 | Coverage | Uber-associated bases | All Uber trips (HV0003) |
 
-The two sources count differently, so there is a **level discontinuity** at the dashed line — a jump or drop in the trend chart may reflect the source change, not a real demand shift. Long-run trend analysis spanning Feb 2019 should be interpreted with that in mind. Use the **"Post-2019 HVFHV only"** button in the sidebar to restrict to the consistent source.
+The two sources count differently, so there is a **level discontinuity** at the dashed line — a jump or drop in the trend chart may reflect the source change, not a real demand shift. Use the **"Post-2019"** preset in the sidebar to restrict to the consistent source.
                     """
                 )
     with right:
         st.plotly_chart(
             bar_by_group(filtered, group_label, f"Trips by {group_name}"),
-            width="stretch",
+            use_container_width=True,
             config={"displayModeBar": False},
         )
-
-    if source.startswith("All") and "unified_annual" in tables:
-        annual = tables["unified_annual"].copy()
-        annual = annual[annual["year"] >= ANALYSIS_START_DATE.year]
-        annual = annual[
-            (pd.to_datetime(annual["first_date"]) <= end_date)
-            & (pd.to_datetime(annual["last_date"]) >= start_date)
-        ]
-        fig = px.bar(
-            annual,
-            x="year",
-            y="trips",
-            title="Annual Trips Across Loaded Sources",
-            text_auto=".2s",
-        )
-    else:
-        monthly = month_growth_table(filtered)
-        fig = px.bar(
-            monthly,
-            x="pickup_month",
-            y="trips",
-            title="Monthly Trips",
-            text_auto=".2s",
-        )
-    summary_color = CYAN if source.startswith("All") else ACCENT_BLUE
-    fig.update_traces(marker_color=summary_color, textposition="outside")
-    if source.startswith("All") and "unified_annual" in tables:
-        fig.update_xaxes(
-            tickmode="array",
-            tickvals=annual["year"].tolist(),
-            ticktext=annual["year"].astype(str).tolist(),
-        )
-    fig.update_layout(
-        height=330,
-        margin=dict(l=10, r=10, t=45, b=10),
-        xaxis_title=None,
-        yaxis_title="Trips",
-    )
-    st.plotly_chart(fig, width="stretch", config={"displayModeBar": False})
 
 with tab_timing:
     st.subheader("When Demand Moves")
@@ -1006,8 +1163,8 @@ with tab_timing:
         )
 
         col1, col2 = st.columns(2)
-        col1.plotly_chart(fig_hour, width="stretch", config={"displayModeBar": False})
-        col2.plotly_chart(fig_heat, width="stretch", config={"displayModeBar": False})
+        col1.plotly_chart(fig_hour, use_container_width=True, config={"displayModeBar": False})
+        col2.plotly_chart(fig_heat, use_container_width=True, config={"displayModeBar": False})
     elif source.startswith("2014"):
         hourly = period_filter(tables["uber_2014_hourly"], start_date, end_date)
         hourly = hourly[hourly["base_name"].isin(selected_groups)]
@@ -1059,8 +1216,8 @@ with tab_timing:
         )
 
         col1, col2 = st.columns(2)
-        col1.plotly_chart(fig_hour, width="stretch", config={"displayModeBar": False})
-        col2.plotly_chart(fig_heat, width="stretch", config={"displayModeBar": False})
+        col1.plotly_chart(fig_hour, use_container_width=True, config={"displayModeBar": False})
+        col2.plotly_chart(fig_heat, use_container_width=True, config={"displayModeBar": False})
     else:
         daily = filtered.groupby(["weekday_num", "weekday"], as_index=False)["trips"].sum()
         daily = daily.sort_values("weekday_num")
@@ -1077,7 +1234,7 @@ with tab_timing:
             xaxis_title=None,
             yaxis_title="Trips",
         )
-        st.plotly_chart(fig_weekday, width="stretch", config={"displayModeBar": False})
+        st.plotly_chart(fig_weekday, use_container_width=True, config={"displayModeBar": False})
         st.info("The 2015 FOIL table has pickup zones but not pickup hour, so the hourly view is available for 2014 and modern TLC HVFHV data.")
         hourly = None
 
@@ -1129,8 +1286,8 @@ with tab_timing:
         )
 
         col1, col2 = st.columns(2)
-        col1.plotly_chart(fig_hour, width="stretch", config={"displayModeBar": False})
-        col2.plotly_chart(fig_heat, width="stretch", config={"displayModeBar": False})
+        col1.plotly_chart(fig_hour, use_container_width=True, config={"displayModeBar": False})
+        col2.plotly_chart(fig_heat, use_container_width=True, config={"displayModeBar": False})
 
 with tab_geo:
     st.subheader("Where Demand Comes From")
@@ -1170,7 +1327,7 @@ with tab_geo:
                 layers=[layer],
                 tooltip={"text": "Pickup density"},
             ),
-            width="stretch",
+            use_container_width=True,
         )
     else:
         if source.startswith("All"):
@@ -1184,7 +1341,7 @@ with tab_geo:
         with col1:
             st.plotly_chart(
                 bar_by_group(zone_df, "zone", "Top Pickup Zones", top_n=15),
-                width="stretch",
+                use_container_width=True,
                 config={"displayModeBar": False},
             )
         with col2:
@@ -1198,7 +1355,7 @@ with tab_geo:
                 color_continuous_scale=HEATMAP_SCALE,
             )
             fig_tree.update_layout(height=360, margin=dict(l=10, r=10, t=45, b=10))
-            st.plotly_chart(fig_tree, width="stretch", config={"displayModeBar": False})
+            st.plotly_chart(fig_tree, use_container_width=True, config={"displayModeBar": False})
 
         st.subheader("Growth Opportunities")
         growth_col, level_col, rank_col = st.columns((1.4, 0.9, 0.9))
@@ -1340,7 +1497,7 @@ with tab_geo:
                 yaxis_title=None,
                 showlegend=False,
             )
-            st.plotly_chart(fig_growth, width="stretch", config={"displayModeBar": False})
+            st.plotly_chart(fig_growth, use_container_width=True, config={"displayModeBar": False})
             if opportunity_level == "Zone":
                 centroids = load_zone_centroids()
                 map_df = chart_df.merge(
@@ -1395,11 +1552,11 @@ with tab_geo:
                             ],
                             tooltip={"html": "{tooltip}"},
                         ),
-                        width="stretch",
+                        use_container_width=True,
                     )
         elif opportunity_level == "Zone":
             st.info("No zone growth chart is shown for this selection because the comparison window does not have complete zone-level coverage.")
-        st.dataframe(display_opportunities, width="stretch", hide_index=True)
+        st.dataframe(display_opportunities, use_container_width=True, hide_index=True)
 
 with tab_context:
     st.subheader("Weather, Holidays, and Demand")
@@ -1426,7 +1583,7 @@ with tab_context:
             },
         )
         fig_temp.update_layout(height=360, margin=dict(l=10, r=10, t=45, b=10))
-        st.plotly_chart(fig_temp, width="stretch", config={"displayModeBar": False})
+        st.plotly_chart(fig_temp, use_container_width=True, config={"displayModeBar": False})
     with col2:
         rainy = (
             daily_context.groupby("has_precipitation", as_index=False)["trips"]
@@ -1447,7 +1604,7 @@ with tab_context:
             xaxis_title=None,
             yaxis_title="Avg daily trips",
         )
-        st.plotly_chart(fig_rain, width="stretch", config={"displayModeBar": False})
+        st.plotly_chart(fig_rain, use_container_width=True, config={"displayModeBar": False})
 
     st.subheader("Event Impact")
     with st.expander("What events are included? How is the baseline calculated?"):
@@ -1580,7 +1737,7 @@ with tab_context:
                 yaxis_title=None,
                 legend_title_text=None,
             )
-            st.plotly_chart(fig_events, width="stretch", config={"displayModeBar": False})
+            st.plotly_chart(fig_events, use_container_width=True, config={"displayModeBar": False})
             st.caption(chart_caption)
 
             display_impacts = impacts.copy()
@@ -1607,7 +1764,7 @@ with tab_context:
             if len(detail_categories) == 1:
                 st.dataframe(
                     display_impacts[detail_columns],
-                    width="stretch",
+                    use_container_width=True,
                     hide_index=True,
                 )
             else:
@@ -1619,7 +1776,7 @@ with tab_context:
                         ]
                         st.dataframe(
                             category_rows[detail_columns],
-                            width="stretch",
+                            use_container_width=True,
                             hide_index=True,
                         )
 
