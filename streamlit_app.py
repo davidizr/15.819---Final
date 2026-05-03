@@ -287,61 +287,101 @@ def with_period_rolling(df: pd.DataFrame) -> pd.DataFrame:
     return out
 
 
+def _fit_forecast_model(train_series: pd.Series, steps: int) -> pd.Series:
+    """Fit SARIMA model; fallback to Holt-Winters if needed."""
+    import warnings
+
+    try:
+        from statsmodels.tsa.statespace.sarimax import SARIMAX
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            model = SARIMAX(
+                train_series,
+                order=(1, 1, 1),
+                seasonal_order=(1, 1, 1, 7),
+                trend="c",
+                enforce_stationarity=False,
+                enforce_invertibility=False,
+            ).fit(disp=False)
+        forecast = model.forecast(steps=steps)
+    except Exception:
+        from statsmodels.tsa.holtwinters import ExponentialSmoothing
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            model = ExponentialSmoothing(
+                train_series,
+                trend="add",
+                seasonal="add",
+                seasonal_periods=7,
+                initialization_method="estimated",
+            ).fit(optimized=True)
+        forecast = model.forecast(steps)
+    return forecast.clip(lower=0)
+
+
 def build_forecast(df_full: pd.DataFrame):
-    """Return (monthly_actuals, test_pred, future_forecast) DataFrames."""
-    from statsmodels.tsa.holtwinters import ExponentialSmoothing
+    """Return (daily_actuals, test_pred, future_forecast) DataFrames."""
 
     daily = total_by_day(df_full)
     daily["pickup_date"] = pd.to_datetime(daily["pickup_date"])
-    monthly = (
+    if daily.empty:
+        return None, None, None
+
+    series = (
         daily.set_index("pickup_date")["trips"]
-        .resample("MS")
-        .sum()
+        .sort_index()
+        .asfreq("D", fill_value=0)
     )
 
     train_start = pd.Timestamp("2021-01-01")
+    eval_train_end = pd.Timestamp("2024-12-31")
     test_start = pd.Timestamp("2025-01-01")
-    forecast_end = pd.Timestamp("2027-12-01")
+    test_end = pd.Timestamp("2026-12-31")
+    final_train_end = pd.Timestamp("2025-12-31")
+    forecast_start = pd.Timestamp("2026-01-01")
+    forecast_end = pd.Timestamp("2027-12-31")
 
-    monthly = monthly[monthly.index >= train_start]
-    if len(monthly) < 24:
+    # Need enough data to train through 2025 for the final 2026-2027 forecast.
+    if series.index.max() < final_train_end:
         return None, None, None
 
-    train = monthly[monthly.index < test_start]
-    test = monthly[monthly.index >= test_start]
+    train_eval = series.loc[train_start:eval_train_end]
+    train_final = series.loc[train_start:final_train_end]
+    if len(train_eval) < 365 or len(train_final) < 365:
+        return None, None, None
 
-    model = ExponentialSmoothing(
-        train,
-        trend="add",
-        seasonal="mul",
-        seasonal_periods=12,
-        initialization_method="estimated",
-    ).fit(optimized=True)
+    # Backtest on 2025-2026 for diagnostics (not plotted on overview chart).
+    test_index = pd.date_range(test_start, test_end, freq="D")
+    test_pred = None
+    if not series.loc[test_start:test_end].empty:
+        test_forecast = _fit_forecast_model(train_eval, len(test_index))
+        test_pred = pd.DataFrame(
+            {
+                "pickup_date": test_index,
+                "trips_forecast": test_forecast.values,
+            }
+        )
+        test_pred = test_pred[
+            test_pred["pickup_date"].between(test_start, min(series.index.max(), test_end))
+        ].reset_index(drop=True)
 
-    n_test = len(test)
-    n_future = len(pd.date_range(
-        monthly.index.max() + pd.DateOffset(months=1),
-        forecast_end,
-        freq="MS",
-    ))
-    n_total = n_test + n_future
+    forecast_index = pd.date_range(forecast_start, forecast_end, freq="D")
+    forecast_values = _fit_forecast_model(train_final, len(forecast_index))
+    future = pd.DataFrame(
+        {
+            "pickup_date": forecast_index,
+            "trips_forecast": forecast_values.values,
+        }
+    )
 
-    forecast_all = model.forecast(n_total)
-
-    test_pred = forecast_all.iloc[:n_test].reset_index()
-    test_pred.columns = ["pickup_date", "trips_forecast"]
-
-    future_start = monthly.index.max() + pd.DateOffset(months=1)
-    future = forecast_all[forecast_all.index >= future_start].reset_index()
-    future.columns = ["pickup_date", "trips_forecast"]
-
-    monthly_df = monthly.reset_index()
-    monthly_df.columns = ["pickup_date", "trips"]
-
-    return monthly_df, test_pred, future
+    daily_df = series.reset_index()
+    daily_df.columns = ["pickup_date", "trips"]
+    return daily_df, test_pred, future
 
 
-_GRANULARITY_FREQ = {"Daily": "D", "Weekly": "W", "Monthly": "ME", "Yearly": "YE"}
+_GRANULARITY_FREQ = {"Daily": "D", "Weekly": "W-MON", "Monthly": "MS", "Yearly": "YS"}
 
 
 def resample_to_granularity(df: pd.DataFrame, granularity: str) -> pd.DataFrame:
@@ -357,6 +397,28 @@ def resample_to_granularity(df: pd.DataFrame, granularity: str) -> pd.DataFrame:
         .reset_index()
     )
     return resampled
+
+
+def resample_series_for_granularity(
+    series_df: pd.DataFrame,
+    granularity: str,
+    value_col: str,
+) -> pd.DataFrame:
+    if series_df is None or series_df.empty:
+        return pd.DataFrame(columns=["pickup_date", value_col])
+    freq = _GRANULARITY_FREQ.get(granularity, "D")
+    out = series_df.copy()
+    out["pickup_date"] = pd.to_datetime(out["pickup_date"])
+    out = out.sort_values("pickup_date")
+    if freq == "D":
+        return out[["pickup_date", value_col]]
+    aggregated = (
+        out.set_index("pickup_date")[value_col]
+        .resample(freq)
+        .sum()
+        .reset_index()
+    )
+    return aggregated
 
 
 def growth_stats(df: pd.DataFrame) -> dict:
@@ -595,8 +657,6 @@ def line_trend(
     df: pd.DataFrame,
     title: str,
     granularity: str = "Daily",
-    monthly_actuals=None,
-    test_pred=None,
     future_forecast=None,
 ) -> go.Figure:
     fig = go.Figure()
@@ -631,26 +691,34 @@ def line_trend(
             )
         )
 
-    if test_pred is not None and not test_pred.empty:
-        fig.add_trace(
-            go.Scatter(
-                x=test_pred["pickup_date"],
-                y=test_pred["trips_forecast"],
-                mode="lines",
-                name="Model (test 2025–2026)",
-                line=dict(color=AQUA, width=2, dash="dot"),
-            )
-        )
     if future_forecast is not None and not future_forecast.empty:
-        fig.add_trace(
-            go.Scatter(
-                x=future_forecast["pickup_date"],
-                y=future_forecast["trips_forecast"],
-                mode="lines",
-                name="Forecast (2026–2027)",
-                line=dict(color=POSITIVE_GREEN, width=2.5, dash="dash"),
-            )
+        forecast_plot = resample_series_for_granularity(
+            future_forecast,
+            granularity,
+            "trips_forecast",
         )
+        if granularity == "Daily":
+            fig.add_trace(
+                go.Scatter(
+                    x=forecast_plot["pickup_date"],
+                    y=forecast_plot["trips_forecast"],
+                    mode="lines",
+                    name="Forecast (2026–2027)",
+                    line=dict(color=POSITIVE_GREEN, width=2.5, dash="dash"),
+                )
+            )
+        else:
+            fig.add_trace(
+                go.Bar(
+                    x=forecast_plot["pickup_date"],
+                    y=forecast_plot["trips_forecast"],
+                    name="Forecast (2026–2027)",
+                    marker_color=POSITIVE_GREEN,
+                    opacity=0.55,
+                )
+            )
+    if granularity != "Daily":
+        fig.update_layout(barmode="group")
 
     fig.update_layout(
         title=title,
@@ -978,16 +1046,17 @@ if st.session_state.get("_active_source") != source:
 
 import datetime as _dt
 
-_today = max_date
+_today = pd.Timestamp.today().date()
+_range_end = min(max_date, _today)
 _presets = {
-    "1D": max_date - _dt.timedelta(days=1),
-    "1W": max_date - _dt.timedelta(weeks=1),
-    "1M": max_date - _dt.timedelta(days=30),
-    "4M": max_date - _dt.timedelta(days=120),
-    "6M": max_date - _dt.timedelta(days=183),
-    "1Y": max_date - _dt.timedelta(days=365),
-    "5Y": max_date - _dt.timedelta(days=365 * 5),
-    "YTD": _dt.date(_today.year, 1, 1),
+    "1D": _range_end - _dt.timedelta(days=1),
+    "1W": _range_end - _dt.timedelta(weeks=1),
+    "1M": _range_end - _dt.timedelta(days=30),
+    "4M": _range_end - _dt.timedelta(days=120),
+    "6M": _range_end - _dt.timedelta(days=183),
+    "1Y": _range_end - _dt.timedelta(days=365),
+    "5Y": _range_end - _dt.timedelta(days=365 * 5),
+    "YTD": _dt.date(_range_end.year, 1, 1),
     "All": min_date,
 }
 
@@ -1007,7 +1076,7 @@ _selected_preset = st.sidebar.radio(
 )
 
 start_date = pd.Timestamp(max(min_date, _presets[_selected_preset]))
-end_date = pd.Timestamp(max_date)
+end_date = pd.Timestamp(_range_end)
 
 group_volume = (
     active.groupby(group_label, as_index=False)["trips"]
@@ -1023,6 +1092,7 @@ selected_groups = selected_group_values(
 
 filtered = period_filter(active, start_date, end_date)
 filtered = filtered[filtered[group_label].astype(str).isin(selected_groups)]
+forecast_input = active[active[group_label].astype(str).isin(selected_groups)].copy()
 
 if filtered.empty:
     st.warning("No rows match the selected filters.")
@@ -1064,8 +1134,8 @@ with tab_overview:
         label_visibility="collapsed",
     )
 
-    # --- Forecast (trained on full active dataset, 2021–2025) ---
-    _monthly_actuals, _test_pred, _future_forecast = build_forecast(active)
+    # --- Forecast (trained on selected data, 2021–2025) ---
+    _, _, _future_forecast = build_forecast(forecast_input)
 
     left, right = st.columns((2, 1))
     with left:
@@ -1074,8 +1144,6 @@ with tab_overview:
                 filtered,
                 f"{granularity} Demand",
                 granularity,
-                monthly_actuals=_monthly_actuals,
-                test_pred=_test_pred,
                 future_forecast=_future_forecast,
             ),
             use_container_width=True,
