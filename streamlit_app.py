@@ -705,9 +705,13 @@ def line_trend(
             )
         )
 
-    if granularity == "Daily":
-        if future_forecast is not None and not future_forecast.empty:
-            forecast_plot = future_forecast.sort_values("pickup_date")
+    if future_forecast is not None and not future_forecast.empty:
+        forecast_plot = resample_series_for_granularity(
+            future_forecast,
+            granularity,
+            "trips_forecast",
+        )
+        if granularity == "Daily":
             fig.add_trace(
                 go.Scatter(
                     x=forecast_plot["pickup_date"],
@@ -715,6 +719,16 @@ def line_trend(
                     mode="lines",
                     name="Forecast",
                     line=dict(color=NEUTRAL_GRAY, width=2.5, dash="dash"),
+                )
+            )
+        else:
+            fig.add_trace(
+                go.Bar(
+                    x=forecast_plot["pickup_date"],
+                    y=forecast_plot["trips_forecast"],
+                    name="Forecast",
+                    marker_color=NEUTRAL_GRAY,
+                    opacity=0.6,
                 )
             )
     if granularity != "Daily":
@@ -1241,32 +1255,27 @@ with tab_overview:
         label_visibility="collapsed",
     )
 
-    forecast_months = 1
-    forecast_model = FORECAST_MODELS[0]
-    if granularity == "Daily":
-        horizon_col, model_col = st.columns(2)
-        with horizon_col:
-            forecast_months = st.select_slider(
-                "Forecast horizon",
-                options=list(range(1, 13)),
-                value=1,
-                format_func=lambda months: "1 month" if months == 1 else f"{months} months",
-            )
-        with model_col:
-            forecast_model = st.selectbox(
-                "Forecast model",
-                FORECAST_MODELS,
-                index=0,
-            )
+    horizon_col, model_col = st.columns(2)
+    with horizon_col:
+        forecast_months = st.select_slider(
+            "Forecast horizon",
+            options=list(range(1, 13)),
+            value=1,
+            format_func=lambda months: "1 month" if months == 1 else f"{months} months",
+        )
+    with model_col:
+        forecast_model = st.selectbox(
+            "Forecast model",
+            FORECAST_MODELS,
+            index=0,
+        )
 
     # --- Daily forecast (trained on selected data from 2021 onward) ---
-    _future_forecast = None
-    if granularity == "Daily":
-        _, _, _future_forecast = build_forecast(
-            forecast_input,
-            forecast_months,
-            forecast_model,
-        )
+    _, _, _future_forecast = build_forecast(
+        forecast_input,
+        forecast_months,
+        forecast_model,
+    )
 
     left, right = st.columns((2, 1))
     with left:
