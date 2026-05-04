@@ -398,17 +398,44 @@ def build_forecast(
 _GRANULARITY_FREQ = {"Daily": "D", "Weekly": "W-MON", "Monthly": "MS", "Yearly": "YS"}
 
 
+def period_start_for_granularity(dates: pd.Series, granularity: str) -> pd.Series:
+    dates = pd.to_datetime(dates)
+    if granularity == "Weekly":
+        return dates - pd.to_timedelta(dates.dt.weekday, unit="D")
+    if granularity == "Monthly":
+        return dates.dt.to_period("M").dt.to_timestamp()
+    if granularity == "Yearly":
+        return dates.dt.to_period("Y").dt.to_timestamp()
+    return dates
+
+
+def period_label_for_granularity(dates: pd.Series, granularity: str) -> pd.Series:
+    dates = pd.to_datetime(dates)
+    if granularity == "Weekly":
+        return "Week of " + dates.dt.strftime("%b %d, %Y")
+    if granularity == "Monthly":
+        return dates.dt.strftime("%b %Y")
+    if granularity == "Yearly":
+        return dates.dt.strftime("%Y")
+    return dates.dt.strftime("%b %d, %Y")
+
+
 def resample_to_granularity(df: pd.DataFrame, granularity: str) -> pd.DataFrame:
     freq = _GRANULARITY_FREQ.get(granularity, "D")
     daily = total_by_day(df)
     if freq == "D":
         return daily
     daily["pickup_date"] = pd.to_datetime(daily["pickup_date"])
+    daily["period_start"] = period_start_for_granularity(
+        daily["pickup_date"], granularity
+    )
     resampled = (
-        daily.set_index("pickup_date")["trips"]
-        .resample(freq)
+        daily.groupby("period_start", as_index=False)["trips"]
         .sum()
-        .reset_index()
+        .rename(columns={"period_start": "pickup_date"})
+    )
+    resampled["period_label"] = period_label_for_granularity(
+        resampled["pickup_date"], granularity
     )
     return resampled
 
@@ -426,11 +453,14 @@ def resample_series_for_granularity(
     out = out.sort_values("pickup_date")
     if freq == "D":
         return out[["pickup_date", value_col]]
+    out["period_start"] = period_start_for_granularity(out["pickup_date"], granularity)
     aggregated = (
-        out.set_index("pickup_date")[value_col]
-        .resample(freq)
+        out.groupby("period_start", as_index=False)[value_col]
         .sum()
-        .reset_index()
+        .rename(columns={"period_start": "pickup_date"})
+    )
+    aggregated["period_label"] = period_label_for_granularity(
+        aggregated["pickup_date"], granularity
     )
     return aggregated
 
@@ -570,6 +600,7 @@ def event_impact_table(
     events: pd.DataFrame,
     baseline_days: int,
     borough_daily: pd.DataFrame | None = None,
+    exclusion_events: pd.DataFrame | None = None,
 ) -> pd.DataFrame:
     if events.empty or daily_context.empty:
         return pd.DataFrame()
@@ -586,7 +617,8 @@ def event_impact_table(
                 boro_df["pickup_date"] = pd.to_datetime(boro_df["pickup_date"])
                 boro_lookup[str(boro_name)] = boro_df
 
-    event_dates = set(pd.to_datetime(events["date"]).dt.normalize())
+    exclusion_calendar = exclusion_events if exclusion_events is not None else events
+    event_dates = set(pd.to_datetime(exclusion_calendar["date"]).dt.normalize())
     rows: list[dict[str, object]] = []
     for event in events.itertuples(index=False):
         event_date = pd.Timestamp(event.date).normalize()
@@ -674,31 +706,25 @@ def line_trend(
     future_forecast=None,
 ) -> go.Figure:
     fig = go.Figure()
+    trend = pd.DataFrame()
+    category_order: list[str] = []
     if granularity == "Daily":
-        trend = with_period_rolling(df)
+        trend = total_by_day(df)
         fig.add_trace(
             go.Scatter(
                 x=trend["pickup_date"],
                 y=trend["trips"],
                 mode="lines",
                 name="Daily trips",
-                line=dict(color=GRAY, width=1.4),
-            )
-        )
-        fig.add_trace(
-            go.Scatter(
-                x=trend["pickup_date"],
-                y=trend["rolling_7d"],
-                mode="lines",
-                name="7-day average",
-                line=dict(color=ACCENT_BLUE, width=3),
+                line=dict(color=ACCENT_BLUE, width=2.2),
             )
         )
     else:
         trend = resample_to_granularity(df, granularity)
+        category_order.extend(trend["period_label"].astype(str).tolist())
         fig.add_trace(
             go.Bar(
-                x=trend["pickup_date"],
+                x=trend["period_label"],
                 y=trend["trips"],
                 name=f"{granularity} trips",
                 marker_color=ACCENT_BLUE,
@@ -712,6 +738,14 @@ def line_trend(
             "trips_forecast",
         )
         if granularity == "Daily":
+            if not trend.empty:
+                anchor = pd.DataFrame(
+                    {
+                        "pickup_date": [trend["pickup_date"].max()],
+                        "trips_forecast": [trend.sort_values("pickup_date")["trips"].iloc[-1]],
+                    }
+                )
+                forecast_plot = pd.concat([anchor, forecast_plot], ignore_index=True)
             fig.add_trace(
                 go.Scatter(
                     x=forecast_plot["pickup_date"],
@@ -722,9 +756,12 @@ def line_trend(
                 )
             )
         else:
+            category_order.extend(
+                forecast_plot["period_label"].astype(str).tolist()
+            )
             fig.add_trace(
                 go.Bar(
-                    x=forecast_plot["pickup_date"],
+                    x=forecast_plot["period_label"],
                     y=forecast_plot["trips_forecast"],
                     name="Forecast",
                     marker_color=NEUTRAL_GRAY,
@@ -733,6 +770,12 @@ def line_trend(
             )
     if granularity != "Daily":
         fig.update_layout(barmode="group")
+        category_order = list(dict.fromkeys(category_order))
+        fig.update_xaxes(
+            type="category",
+            categoryorder="array",
+            categoryarray=category_order,
+        )
 
     fig.update_layout(
         title=title,
@@ -743,6 +786,8 @@ def line_trend(
         xaxis_title=None,
     )
     if (
+        granularity == "Daily"
+        and
         not trend.empty
         and trend["pickup_date"].min() <= SOURCE_CHANGE_DATE <= trend["pickup_date"].max()
     ):
@@ -790,10 +835,10 @@ def bar_by_group(df: pd.DataFrame, group_col: str, title: str, top_n: int = 12) 
 
 def comparison_start(latest_date: pd.Timestamp, period_label: str) -> pd.Timestamp:
     if period_label == "Week":
-        return latest_date - pd.Timedelta(days=6)
+        return latest_date - pd.Timedelta(days=latest_date.weekday())
     if period_label == "Month":
-        return latest_date - pd.DateOffset(months=1) + pd.Timedelta(days=1)
-    return latest_date - pd.DateOffset(years=1) + pd.Timedelta(days=1)
+        return latest_date.replace(day=1)
+    return latest_date.replace(month=1, day=1)
 
 
 def build_period_comparison(
@@ -816,11 +861,20 @@ def build_period_comparison(
     days = (current_end - current_start).days + 1
 
     if comparison_mode == "Previous period":
-        comparison_end = current_start - pd.Timedelta(days=1)
-        comparison_start_date = comparison_end - pd.Timedelta(days=days - 1)
+        if period_label == "Month":
+            comparison_start_date = current_start - pd.DateOffset(months=1)
+            comparison_end = comparison_start_date + pd.Timedelta(days=days - 1)
+        elif period_label == "Year":
+            comparison_start_date = current_start - pd.DateOffset(years=1)
+            comparison_end = comparison_start_date + pd.Timedelta(days=days - 1)
+        else:
+            comparison_start_date = current_start - pd.Timedelta(days=7)
+            comparison_end = comparison_start_date + pd.Timedelta(days=days - 1)
     else:
         comparison_start_date = current_start - pd.DateOffset(years=1)
         comparison_end = current_end - pd.DateOffset(years=1)
+
+    current_axis = pd.date_range(current_start, current_end, freq="D")
 
     def window_frame(start: pd.Timestamp, end: pd.Timestamp, label: str) -> pd.DataFrame:
         idx = pd.date_range(start, end, freq="D")
@@ -829,6 +883,7 @@ def build_period_comparison(
             {
                 "day": range(1, len(values) + 1),
                 "date": values.index,
+                "plot_date": current_axis[: len(values)],
                 "period": label,
                 "trips": values.values,
             }
@@ -871,22 +926,24 @@ def period_comparison_chart(chart_df: pd.DataFrame, period_label: str) -> go.Fig
             continue
         fig.add_trace(
             go.Scatter(
-                x=period_df["day"],
+                x=period_df["plot_date"],
                 y=period_df["trips"],
                 mode="lines",
                 name=label,
                 line=dict(color=color, width=width, dash="solid"),
                 customdata=period_df["date"].dt.strftime("%b %d, %Y"),
-                hovertemplate="Day %{x}<br>%{customdata}<br>Trips: %{y:,.0f}<extra>%{fullData.name}</extra>",
+                hovertemplate="%{x|%b %d}<br>Actual date: %{customdata}<br>Trips: %{y:,.0f}<extra>%{fullData.name}</extra>",
             )
         )
+    tick_format = "%b %d" if period_label != "Year" else "%b"
     fig.update_layout(
         title=f"{period_label} Comparison",
         height=360,
         margin=dict(l=10, r=10, t=45, b=10),
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
-        xaxis_title=f"Day in {period_label.lower()}",
+        xaxis_title="Date in current period",
         yaxis_title="Trips",
+        xaxis=dict(tickformat=tick_format),
     )
     return fig
 
@@ -1166,24 +1223,36 @@ import datetime as _dt
 _today = pd.Timestamp.today().date()
 _range_end = min(max_date, _today)
 _presets = {
-    "1D": _range_end - _dt.timedelta(days=1),
-    "1W": _range_end - _dt.timedelta(weeks=1),
-    "1M": _range_end - _dt.timedelta(days=30),
-    "4M": _range_end - _dt.timedelta(days=120),
-    "6M": _range_end - _dt.timedelta(days=183),
-    "1Y": _range_end - _dt.timedelta(days=365),
-    "5Y": _range_end - _dt.timedelta(days=365 * 5),
+    "1D": _range_end,
+    "7D": _range_end - _dt.timedelta(days=6),
+    "30D": _range_end - _dt.timedelta(days=29),
+    "90D": _range_end - _dt.timedelta(days=89),
+    "MTD": _dt.date(_range_end.year, _range_end.month, 1),
     "YTD": _dt.date(_range_end.year, 1, 1),
+    "1Y": _range_end - _dt.timedelta(days=364),
+    "5Y": _range_end - _dt.timedelta(days=(365 * 5) - 1),
     "All": min_date,
+}
+_preset_descriptions = {
+    "1D": "latest loaded day only",
+    "7D": "rolling 7 days",
+    "30D": "rolling 30 days",
+    "90D": "rolling 90 days",
+    "MTD": "calendar month to date",
+    "YTD": "calendar year to date",
+    "1Y": "rolling 365 days",
+    "5Y": "rolling 5 years",
+    "All": "full loaded dataset",
 }
 
 _source_change = SOURCE_CHANGE_DATE.date()
 if min_date < _source_change <= max_date:
     _presets["Post-2019"] = _source_change
+    _preset_descriptions["Post-2019"] = "consistent HVFHV source period"
 
 st.sidebar.markdown("**Date range**")
 _preset_labels = list(_presets.keys())
-_default_preset = "1M"
+_default_preset = "MTD"
 _saved_preset = st.session_state.get(_PRESET_KEY, _default_preset)
 if _saved_preset not in _preset_labels:
     _saved_preset = _default_preset
@@ -1198,6 +1267,9 @@ _selected_preset = st.sidebar.radio(
 
 start_date = pd.Timestamp(max(min_date, _presets[_selected_preset]))
 end_date = pd.Timestamp(_range_end)
+selected_range_label = date_window_label(start_date, end_date)
+selected_preset_detail = _preset_descriptions.get(_selected_preset, "selected range")
+st.sidebar.caption(f"{selected_range_label} | {_selected_preset}: {selected_preset_detail}")
 
 group_volume = (
     active.groupby(group_label, as_index=False)["trips"]
@@ -1219,6 +1291,17 @@ if filtered.empty:
     st.warning("No rows match the selected filters.")
     st.stop()
 
+st.markdown(
+    (
+        "<div class='section-note'>"
+        f"<strong>Data cutoff:</strong> {pd.Timestamp(max_date).strftime('%b %d, %Y')} "
+        f"| <strong>Selected range:</strong> {selected_range_label} "
+        f"| <strong>Preset:</strong> {_selected_preset} ({selected_preset_detail})"
+        "</div>"
+    ),
+    unsafe_allow_html=True,
+)
+
 tab_overview, tab_timing, tab_geo, tab_context = st.tabs(
     ["Overview", "Timing", "Geography", "Context"]
 )
@@ -1233,7 +1316,7 @@ with tab_overview:
         if v is None:
             return "N/A", None
         color = POSITIVE_GREEN if v >= 0 else NEGATIVE_RED
-        arrow = "▲" if v >= 0 else "▼"
+        arrow = "+" if v >= 0 else "-"
         return f"{arrow} {abs(v):.1%}", color
 
     g_wow, c_wow = _fmt_growth(gs["wow"])
@@ -1241,9 +1324,9 @@ with tab_overview:
     g_yoy, c_yoy = _fmt_growth(gs["yoy"])
 
     gcol1, gcol2, gcol3 = st.columns(3)
-    gcol1.metric("Week-over-Week (WoW)", g_wow)
-    gcol2.metric("Month-over-Month (MoM)", g_mom)
-    gcol3.metric("Year-over-Year (YoY)", g_yoy)
+    gcol1.metric("7D vs prior 7D", g_wow)
+    gcol2.metric("30D vs prior 30D", g_mom)
+    gcol3.metric("365D vs prior 365D", g_yoy)
 
     st.divider()
 
@@ -1337,6 +1420,10 @@ The two sources count differently, so there is a **level discontinuity** at the 
             horizontal=True,
             key="overview_comparison_mode",
         )
+    st.caption(
+        "Calendar periods are partial-to-date: Month compares month-to-date "
+        "against the same day count in the prior month, e.g. Nov 1-16 vs Oct 1-16."
+    )
 
     comparison_df, comparison_meta = build_period_comparison(
         forecast_input,
@@ -1866,7 +1953,7 @@ with tab_context:
             """
             **Events included**
             - **Federal holiday:** official U.S. federal holidays from the calendar.
-            - **Sports:** NYC Marathon, NYC Half Marathon, US Open (start + final); NY Mets home opener and postseason home games (2015 NLDS/NLCS/WS, 2022 Wild Card, 2024 run); NY Knicks home opener and playoff home games (2021, 2023, 2024); NY Rangers home opener and playoff home games (2022, 2024).
+            - **Sports:** curated major home dates for NYC teams and major events, including Knicks, Nets, Rangers, Mets, Yankees, NYC Marathon, NYC Half Marathon, and US Open dates. This is a high-signal event calendar, not every regular-season home game.
             - **Concerts & music festivals:** Governors Ball, Global Citizen Festival, and Panorama Music Festival.
             - **Parades & civic festivals:** NYC Pride March, St. Patrick's Day Parade, Puerto Rican Day Parade, and Village Halloween Parade.
             - **Convention / expo:** New York Comic Con at the Javits Center.
@@ -1874,10 +1961,18 @@ with tab_context:
 
             **How the baseline is calculated**
 
-            For each event date, the baseline is the **average daily trips on same-weekday days within ±N days** (the "Baseline window" slider, default ±42 days), excluding any other event dates in the calendar. So a Saturday Knicks game is compared with nearby Saturdays that have no events, not with the average across all weekdays. The trip totals reflect whatever boroughs are currently selected in the sidebar — with all boroughs selected the baseline is NYC-wide; narrow the borough filter and the baseline narrows accordingly.
+            The selected date range controls which event dates appear. For each event date, the baseline is the **average daily trips on same-weekday days within +/- N days** (the "Baseline window" slider, default +/- 42 days), excluding other event dates in the calendar. So a Saturday Knicks game is compared with nearby Saturdays that have no events, not with the average across all weekdays.
+
+            For single-borough events, the raw baseline uses that event borough's trips when that borough is selected. With all boroughs selected, a Knicks game uses Manhattan demand, a Mets game uses Queens demand, and a multi-borough event like the Marathon uses the selected NYC total. The DiD option then subtracts the same-day lift in the other boroughs to reduce citywide noise.
             """
         )
-    events = build_event_calendar(daily_context)
+    event_scope = active[active[group_label].astype(str).isin(selected_groups)].copy()
+    event_context = total_by_day(event_scope).merge(
+        tables["context"].rename(columns={"date": "pickup_date"}),
+        on="pickup_date",
+        how="left",
+    )
+    events = build_event_calendar(event_context)
     if events.empty:
         st.info(
             "No events are available for this date range. Add rows to "
@@ -1916,15 +2011,29 @@ with tab_context:
             events["event_category"].isin(selected_event_categories)
             & events["date"].between(start_date, end_date)
         ]
-        # Build per-borough daily trips so each event uses only its borough's demand
-        if "borough" in filtered.columns:
+        if group_label == "borough":
+            selected_borough_set = set(selected_groups)
+            selected_events = selected_events[
+                selected_events["borough"].isin(selected_borough_set)
+                | selected_events["borough"].isin(["Multiple boroughs", ""])
+                | selected_events["borough"].isna()
+            ]
+
+        # Build per-borough daily trips so each event can use its own borough's demand.
+        if "borough" in event_scope.columns:
             _boro_daily = (
-                filtered.groupby(["pickup_date", "borough"], as_index=False)["trips"].sum()
+                event_scope.groupby(["pickup_date", "borough"], as_index=False)["trips"].sum()
             )
             _boro_daily["weekday_num"] = pd.to_datetime(_boro_daily["pickup_date"]).dt.weekday
         else:
             _boro_daily = None
-        impacts = event_impact_table(daily_context, selected_events, baseline_days, _boro_daily)
+        impacts = event_impact_table(
+            event_context,
+            selected_events,
+            baseline_days,
+            _boro_daily,
+            exclusion_events=events,
+        )
         if impacts.empty:
             st.info("No event days match the selected filters.")
         else:
@@ -1944,7 +2053,7 @@ with tab_context:
                 category_summary["plot_lift"] = category_summary["avg_did_lift"].where(
                     category_summary["avg_did_lift"].notna(), category_summary["avg_lift"]
                 )
-                chart_title = "Average Event-Day Lift — DiD (raw fallback for multi-borough events)"
+                chart_title = "Average Event-Day Lift - DiD (raw fallback for multi-borough events)"
                 chart_caption = (
                     "DiD lift = event borough lift minus same-day lift in other boroughs, "
                     "removing citywide demand shocks. "
@@ -1952,7 +2061,7 @@ with tab_context:
                 )
             else:
                 category_summary["plot_lift"] = category_summary["avg_lift"]
-                chart_title = "Average Event-Day Lift — Raw same-weekday baseline"
+                chart_title = "Average Event-Day Lift - Raw same-weekday baseline"
                 chart_caption = (
                     "Raw lift = event borough trips on event day vs average on nearby same-weekday non-event days. "
                     "Does not control for citywide demand variation."

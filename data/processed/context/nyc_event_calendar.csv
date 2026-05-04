@@ -1,6 +1,7 @@
 date,event_name,event_category,venue,borough
 2015-03-15,NYC Half Marathon,Sports,Manhattan/Brooklyn route,Multiple boroughs
 2015-03-17,St. Patrick's Day Parade,Parades & civic festivals,Fifth Avenue,Manhattan
+2015-04-06,Yankees Home Opener,Sports,Yankee Stadium,Bronx
 2015-04-13,Mets Home Opener,Sports,Citi Field,Queens
 2015-06-05,Governors Ball,Concerts & music festivals,Randall's Island Park,Manhattan
 2015-06-06,Governors Ball,Concerts & music festivals,Randall's Island Park,Manhattan
@@ -20,6 +21,7 @@ date,event_name,event_category,venue,borough
 2015-10-17,Mets NLCS 2015,Sports,Citi Field,Queens
 2015-10-18,Mets NLCS 2015,Sports,Citi Field,Queens
 2015-10-28,Knicks Home Opener,Sports,Madison Square Garden,Manhattan
+2015-10-28,Nets Home Opener,Sports,Barclays Center,Brooklyn
 2015-10-30,Mets World Series 2015,Sports,Citi Field,Queens
 2015-10-31,Village Halloween Parade,Parades & civic festivals,Greenwich Village/Manhattan route,Manhattan
 2015-10-31,Mets World Series 2015,Sports,Citi Field,Queens
@@ -28,6 +30,7 @@ date,event_name,event_category,venue,borough
 2015-12-31,Times Square New Year's Eve,Civic / city event,Times Square,Manhattan
 2016-03-17,St. Patrick's Day Parade,Parades & civic festivals,Fifth Avenue,Manhattan
 2016-03-20,NYC Half Marathon,Sports,Manhattan/Brooklyn route,Multiple boroughs
+2016-04-05,Yankees Home Opener,Sports,Yankee Stadium,Bronx
 2016-04-08,Mets Home Opener,Sports,Citi Field,Queens
 2016-06-03,Governors Ball,Concerts & music festivals,Randall's Island Park,Manhattan
 2016-06-04,Governors Ball,Concerts & music festivals,Randall's Island Park,Manhattan
@@ -46,12 +49,14 @@ date,event_name,event_category,venue,borough
 2016-10-09,New York Comic Con,Convention / expo,Javits Center,Manhattan
 2016-10-13,Rangers Home Opener,Sports,Madison Square Garden,Manhattan
 2016-10-26,Knicks Home Opener,Sports,Madison Square Garden,Manhattan
+2016-10-28,Nets Home Opener,Sports,Barclays Center,Brooklyn
 2016-10-31,Village Halloween Parade,Parades & civic festivals,Greenwich Village/Manhattan route,Manhattan
 2016-11-06,NYC Marathon,Sports,Five-borough route,Multiple boroughs
 2016-12-31,Times Square New Year's Eve,Civic / city event,Times Square,Manhattan
 2017-03-17,St. Patrick's Day Parade,Parades & civic festivals,Fifth Avenue,Manhattan
 2017-03-19,NYC Half Marathon,Sports,Manhattan/Brooklyn route,Multiple boroughs
 2017-04-06,Mets Home Opener,Sports,Citi Field,Queens
+2017-04-10,Yankees Home Opener,Sports,Yankee Stadium,Bronx
 2017-06-02,Governors Ball,Concerts & music festivals,Randall's Island Park,Manhattan
 2017-06-03,Governors Ball,Concerts & music festivals,Randall's Island Park,Manhattan
 2017-06-04,Governors Ball,Concerts & music festivals,Randall's Island Park,Manhattan
@@ -63,17 +68,25 @@ date,event_name,event_category,venue,borough
 2017-08-28,US Open Starts,Sports,USTA Billie Jean King National Tennis Center,Queens
 2017-09-10,US Open Final,Sports,USTA Billie Jean King National Tennis Center,Queens
 2017-09-23,Global Citizen Festival,Concerts & music festivals,Central Park,Manhattan
+2017-10-03,Yankees Wild Card 2017,Sports,Yankee Stadium,Bronx
 2017-10-05,New York Comic Con,Convention / expo,Javits Center,Manhattan
 2017-10-06,New York Comic Con,Convention / expo,Javits Center,Manhattan
 2017-10-07,New York Comic Con,Convention / expo,Javits Center,Manhattan
 2017-10-08,New York Comic Con,Convention / expo,Javits Center,Manhattan
+2017-10-08,Yankees ALDS 2017,Sports,Yankee Stadium,Bronx
 2017-10-09,Rangers Home Opener,Sports,Madison Square Garden,Manhattan
+2017-10-09,Yankees ALDS 2017,Sports,Yankee Stadium,Bronx
+2017-10-16,Yankees ALCS 2017,Sports,Yankee Stadium,Bronx
+2017-10-17,Yankees ALCS 2017,Sports,Yankee Stadium,Bronx
+2017-10-18,Yankees ALCS 2017,Sports,Yankee Stadium,Bronx
 2017-10-19,Knicks Home Opener,Sports,Madison Square Garden,Manhattan
+2017-10-20,Nets Home Opener,Sports,Barclays Center,Brooklyn
 2017-10-31,Village Halloween Parade,Parades & civic festivals,Greenwich Village/Manhattan route,Manhattan
 2017-11-05,NYC Marathon,Sports,Five-borough route,Multiple boroughs
 2017-12-31,Times Square New Year's Eve,Civic / city event,Times Square,Manhattan
 2018-03-17,St. Patrick's Day Parade,Parades & civic festivals,Fifth Avenue,Manhattan
 2018-03-18,NYC Half Marathon,Sports,Manhattan/Brooklyn route,Multiple boroughs
+2018-04-02,Yankees Home Opener,Sports,Yankee Stadium,Bronx
 2018-04-05,Mets Home Opener,Sports,Citi Field,Queens
 2018-06-01,Governors Ball,Concerts & music festivals,Randall's Island Park,Manhattan
 2018-06-02,Governors Ball,Concerts & music festivals,Randall's Island Park,Manhattan
@@ -91,12 +104,14 @@ date,event_name,event_category,venue,borough
 2018-10-05,New York Comic Con,Convention / expo,Javits Center,Manhattan
 2018-10-06,New York Comic Con,Convention / expo,Javits Center,Manhattan
 2018-10-07,New York Comic Con,Convention / expo,Javits Center,Manhattan
+2018-10-19,Nets Home Opener,Sports,Barclays Center,Brooklyn
 2018-10-20,Knicks Home Opener,Sports,Madison Square Garden,Manhattan
 2018-10-31,Village Halloween Parade,Parades & civic festivals,Greenwich Village/Manhattan route,Manhattan
 2018-11-04,NYC Marathon,Sports,Five-borough route,Multiple boroughs
 2018-12-31,Times Square New Year's Eve,Civic / city event,Times Square,Manhattan
 2019-03-17,St. Patrick's Day Parade,Parades & civic festivals,Fifth Avenue,Manhattan
 2019-03-17,NYC Half Marathon,Sports,Manhattan/Brooklyn route,Multiple boroughs
+2019-03-28,Yankees Home Opener,Sports,Yankee Stadium,Bronx
 2019-04-04,Mets Home Opener,Sports,Citi Field,Queens
 2019-05-31,Governors Ball,Concerts & music festivals,Randall's Island Park,Manhattan
 2019-06-01,Governors Ball,Concerts & music festivals,Randall's Island Park,Manhattan
@@ -109,8 +124,14 @@ date,event_name,event_category,venue,borough
 2019-10-03,New York Comic Con,Convention / expo,Javits Center,Manhattan
 2019-10-03,Rangers Home Opener,Sports,Madison Square Garden,Manhattan
 2019-10-04,New York Comic Con,Convention / expo,Javits Center,Manhattan
+2019-10-04,Yankees ALDS 2019,Sports,Yankee Stadium,Bronx
 2019-10-05,New York Comic Con,Convention / expo,Javits Center,Manhattan
+2019-10-05,Yankees ALDS 2019,Sports,Yankee Stadium,Bronx
 2019-10-06,New York Comic Con,Convention / expo,Javits Center,Manhattan
+2019-10-15,Yankees ALCS 2019,Sports,Yankee Stadium,Bronx
+2019-10-17,Yankees ALCS 2019,Sports,Yankee Stadium,Bronx
+2019-10-18,Yankees ALCS 2019,Sports,Yankee Stadium,Bronx
+2019-10-23,Nets Home Opener,Sports,Barclays Center,Brooklyn
 2019-10-24,Knicks Home Opener,Sports,Madison Square Garden,Manhattan
 2019-10-31,Village Halloween Parade,Parades & civic festivals,Greenwich Village/Manhattan route,Manhattan
 2019-11-03,NYC Marathon,Sports,Five-borough route,Multiple boroughs
@@ -119,9 +140,17 @@ date,event_name,event_category,venue,borough
 2020-09-13,US Open Final,Sports,USTA Billie Jean King National Tennis Center,Queens
 2020-12-31,Times Square New Year's Eve,Civic / city event,Times Square,Manhattan
 2021-01-14,Rangers Home Opener,Sports,Madison Square Garden,Manhattan
+2021-04-01,Yankees Home Opener,Sports,Yankee Stadium,Bronx
 2021-04-08,Mets Home Opener,Sports,Citi Field,Queens
+2021-05-22,Nets Playoffs 2021,Sports,Barclays Center,Brooklyn
+2021-05-25,Nets Playoffs 2021,Sports,Barclays Center,Brooklyn
 2021-05-27,Knicks Playoffs 2021,Sports,Madison Square Garden,Manhattan
 2021-05-29,Knicks Playoffs 2021,Sports,Madison Square Garden,Manhattan
+2021-06-01,Nets Playoffs 2021,Sports,Barclays Center,Brooklyn
+2021-06-05,Nets Playoffs 2021,Sports,Barclays Center,Brooklyn
+2021-06-07,Nets Playoffs 2021,Sports,Barclays Center,Brooklyn
+2021-06-15,Nets Playoffs 2021,Sports,Barclays Center,Brooklyn
+2021-06-19,Nets Playoffs 2021,Sports,Barclays Center,Brooklyn
 2021-08-30,US Open Starts,Sports,USTA Billie Jean King National Tennis Center,Queens
 2021-09-12,US Open Final,Sports,USTA Billie Jean King National Tennis Center,Queens
 2021-09-24,Governors Ball,Concerts & music festivals,Citi Field,Queens
@@ -134,17 +163,22 @@ date,event_name,event_category,venue,borough
 2021-10-10,New York Comic Con,Convention / expo,Javits Center,Manhattan
 2021-10-14,Rangers Home Opener,Sports,Madison Square Garden,Manhattan
 2021-10-21,Knicks Home Opener,Sports,Madison Square Garden,Manhattan
+2021-10-24,Nets Home Opener,Sports,Barclays Center,Brooklyn
 2021-10-31,Village Halloween Parade,Parades & civic festivals,Greenwich Village/Manhattan route,Manhattan
 2021-11-07,NYC Marathon,Sports,Five-borough route,Multiple boroughs
 2021-12-31,Times Square New Year's Eve,Civic / city event,Times Square,Manhattan
 2022-03-17,St. Patrick's Day Parade,Parades & civic festivals,Fifth Avenue,Manhattan
 2022-03-20,NYC Half Marathon,Sports,Manhattan/Brooklyn route,Multiple boroughs
+2022-04-08,Yankees Home Opener,Sports,Yankee Stadium,Bronx
 2022-04-15,Mets Home Opener,Sports,Citi Field,Queens
+2022-04-23,Nets Playoffs 2022,Sports,Barclays Center,Brooklyn
+2022-04-25,Nets Playoffs 2022,Sports,Barclays Center,Brooklyn
 2022-05-03,Rangers Playoffs 2022,Sports,Madison Square Garden,Manhattan
 2022-05-05,Rangers Playoffs 2022,Sports,Madison Square Garden,Manhattan
 2022-05-11,Rangers Playoffs 2022,Sports,Madison Square Garden,Manhattan
-2022-05-17,Rangers Playoffs 2022,Sports,Madison Square Garden,Manhattan
-2022-05-26,Rangers Playoffs 2022,Sports,Madison Square Garden,Manhattan
+2022-05-15,Rangers Playoffs 2022,Sports,Madison Square Garden,Manhattan
+2022-05-22,Rangers Playoffs 2022,Sports,Madison Square Garden,Manhattan
+2022-05-24,Rangers Playoffs 2022,Sports,Madison Square Garden,Manhattan
 2022-05-28,Rangers Playoffs 2022,Sports,Madison Square Garden,Manhattan
 2022-06-01,Rangers Playoffs 2022,Sports,Madison Square Garden,Manhattan
 2022-06-03,Rangers Playoffs 2022,Sports,Madison Square Garden,Manhattan
@@ -162,18 +196,27 @@ date,event_name,event_category,venue,borough
 2022-10-08,New York Comic Con,Convention / expo,Javits Center,Manhattan
 2022-10-08,Mets Wild Card 2022,Sports,Citi Field,Queens
 2022-10-09,New York Comic Con,Convention / expo,Javits Center,Manhattan
+2022-10-11,Yankees ALDS 2022,Sports,Yankee Stadium,Bronx
 2022-10-13,Rangers Home Opener,Sports,Madison Square Garden,Manhattan
+2022-10-14,Yankees ALDS 2022,Sports,Yankee Stadium,Bronx
+2022-10-18,Yankees ALDS 2022,Sports,Yankee Stadium,Bronx
+2022-10-19,Nets Home Opener,Sports,Barclays Center,Brooklyn
 2022-10-20,Knicks Home Opener,Sports,Madison Square Garden,Manhattan
+2022-10-22,Yankees ALCS 2022,Sports,Yankee Stadium,Bronx
+2022-10-23,Yankees ALCS 2022,Sports,Yankee Stadium,Bronx
 2022-10-31,Village Halloween Parade,Parades & civic festivals,Greenwich Village/Manhattan route,Manhattan
 2022-11-06,NYC Marathon,Sports,Five-borough route,Multiple boroughs
 2022-12-31,Times Square New Year's Eve,Civic / city event,Times Square,Manhattan
 2023-03-17,St. Patrick's Day Parade,Parades & civic festivals,Fifth Avenue,Manhattan
 2023-03-19,NYC Half Marathon,Sports,Manhattan/Brooklyn route,Multiple boroughs
+2023-03-30,Yankees Home Opener,Sports,Yankee Stadium,Bronx
 2023-04-06,Mets Home Opener,Sports,Citi Field,Queens
-2023-04-20,Knicks Playoffs 2023,Sports,Madison Square Garden,Manhattan
-2023-04-22,Knicks Playoffs 2023,Sports,Madison Square Garden,Manhattan
+2023-04-20,Nets Playoffs 2023,Sports,Barclays Center,Brooklyn
+2023-04-21,Knicks Playoffs 2023,Sports,Madison Square Garden,Manhattan
+2023-04-22,Nets Playoffs 2023,Sports,Barclays Center,Brooklyn
+2023-04-23,Knicks Playoffs 2023,Sports,Madison Square Garden,Manhattan
+2023-04-30,Knicks Playoffs 2023,Sports,Madison Square Garden,Manhattan
 2023-05-02,Knicks Playoffs 2023,Sports,Madison Square Garden,Manhattan
-2023-05-04,Knicks Playoffs 2023,Sports,Madison Square Garden,Manhattan
 2023-05-10,Knicks Playoffs 2023,Sports,Madison Square Garden,Manhattan
 2023-06-09,Governors Ball,Concerts & music festivals,Flushing Meadows Corona Park,Queens
 2023-06-10,Governors Ball,Concerts & music festivals,Flushing Meadows Corona Park,Queens
@@ -189,31 +232,29 @@ date,event_name,event_category,venue,borough
 2023-10-14,New York Comic Con,Convention / expo,Javits Center,Manhattan
 2023-10-15,New York Comic Con,Convention / expo,Javits Center,Manhattan
 2023-10-25,Knicks Home Opener,Sports,Madison Square Garden,Manhattan
+2023-10-25,Nets Home Opener,Sports,Barclays Center,Brooklyn
 2023-10-31,Village Halloween Parade,Parades & civic festivals,Greenwich Village/Manhattan route,Manhattan
 2023-11-05,NYC Marathon,Sports,Five-borough route,Multiple boroughs
 2023-12-31,Times Square New Year's Eve,Civic / city event,Times Square,Manhattan
 2024-03-17,St. Patrick's Day Parade,Parades & civic festivals,Fifth Avenue,Manhattan
 2024-03-17,NYC Half Marathon,Sports,Manhattan/Brooklyn route,Multiple boroughs
 2024-03-29,Mets Home Opener,Sports,Citi Field,Queens
+2024-04-05,Yankees Home Opener,Sports,Yankee Stadium,Bronx
 2024-04-20,Knicks Playoffs 2024,Sports,Madison Square Garden,Manhattan
+2024-04-21,Rangers Playoffs 2024,Sports,Madison Square Garden,Manhattan
 2024-04-22,Knicks Playoffs 2024,Sports,Madison Square Garden,Manhattan
-2024-04-22,Rangers Playoffs 2024,Sports,Madison Square Garden,Manhattan
-2024-04-24,Rangers Playoffs 2024,Sports,Madison Square Garden,Manhattan
+2024-04-23,Rangers Playoffs 2024,Sports,Madison Square Garden,Manhattan
 2024-04-30,Knicks Playoffs 2024,Sports,Madison Square Garden,Manhattan
-2024-04-30,Rangers Playoffs 2024,Sports,Madison Square Garden,Manhattan
 2024-05-05,Rangers Playoffs 2024,Sports,Madison Square Garden,Manhattan
-2024-05-07,Knicks Playoffs 2024,Sports,Madison Square Garden,Manhattan
+2024-05-06,Knicks Playoffs 2024,Sports,Madison Square Garden,Manhattan
 2024-05-07,Rangers Playoffs 2024,Sports,Madison Square Garden,Manhattan
-2024-05-09,Knicks Playoffs 2024,Sports,Madison Square Garden,Manhattan
-2024-05-11,Knicks Playoffs 2024,Sports,Madison Square Garden,Manhattan
+2024-05-08,Knicks Playoffs 2024,Sports,Madison Square Garden,Manhattan
 2024-05-13,Rangers Playoffs 2024,Sports,Madison Square Garden,Manhattan
-2024-05-16,Knicks Playoffs 2024,Sports,Madison Square Garden,Manhattan
-2024-05-21,Knicks Playoffs 2024,Sports,Madison Square Garden,Manhattan
+2024-05-14,Knicks Playoffs 2024,Sports,Madison Square Garden,Manhattan
+2024-05-19,Knicks Playoffs 2024,Sports,Madison Square Garden,Manhattan
 2024-05-22,Rangers Playoffs 2024,Sports,Madison Square Garden,Manhattan
-2024-05-23,Knicks Playoffs 2024,Sports,Madison Square Garden,Manhattan
 2024-05-24,Rangers Playoffs 2024,Sports,Madison Square Garden,Manhattan
-2024-05-25,Knicks Playoffs 2024,Sports,Madison Square Garden,Manhattan
-2024-05-28,Rangers Playoffs 2024,Sports,Madison Square Garden,Manhattan
+2024-05-30,Rangers Playoffs 2024,Sports,Madison Square Garden,Manhattan
 2024-06-07,Governors Ball,Concerts & music festivals,Flushing Meadows Corona Park,Queens
 2024-06-08,Governors Ball,Concerts & music festivals,Flushing Meadows Corona Park,Queens
 2024-06-09,Governors Ball,Concerts & music festivals,Flushing Meadows Corona Park,Queens
@@ -222,26 +263,33 @@ date,event_name,event_category,venue,borough
 2024-08-26,US Open Starts,Sports,USTA Billie Jean King National Tennis Center,Queens
 2024-09-08,US Open Final,Sports,USTA Billie Jean King National Tennis Center,Queens
 2024-09-28,Global Citizen Festival,Concerts & music festivals,Central Park,Manhattan
-2024-10-01,Mets Wild Card 2024,Sports,Citi Field,Queens
-2024-10-02,Mets Wild Card 2024,Sports,Citi Field,Queens
+2024-10-05,Yankees ALDS 2024,Sports,Yankee Stadium,Bronx
+2024-10-07,Yankees ALDS 2024,Sports,Yankee Stadium,Bronx
 2024-10-08,Mets NLDS 2024,Sports,Citi Field,Queens
 2024-10-09,Mets NLDS 2024,Sports,Citi Field,Queens
 2024-10-10,Rangers Home Opener,Sports,Madison Square Garden,Manhattan
-2024-10-11,Mets NLDS 2024,Sports,Citi Field,Queens
+2024-10-12,Yankees ALDS 2024,Sports,Yankee Stadium,Bronx
+2024-10-14,Yankees ALCS 2024,Sports,Yankee Stadium,Bronx
+2024-10-15,Yankees ALCS 2024,Sports,Yankee Stadium,Bronx
+2024-10-16,Mets NLCS 2024,Sports,Citi Field,Queens
 2024-10-17,New York Comic Con,Convention / expo,Javits Center,Manhattan
 2024-10-17,Mets NLCS 2024,Sports,Citi Field,Queens
 2024-10-18,New York Comic Con,Convention / expo,Javits Center,Manhattan
 2024-10-18,Mets NLCS 2024,Sports,Citi Field,Queens
 2024-10-19,New York Comic Con,Convention / expo,Javits Center,Manhattan
 2024-10-20,New York Comic Con,Convention / expo,Javits Center,Manhattan
-2024-10-20,Mets NLCS 2024,Sports,Citi Field,Queens
 2024-10-22,Knicks Home Opener,Sports,Madison Square Garden,Manhattan
+2024-10-27,Nets Home Opener,Sports,Barclays Center,Brooklyn
+2024-10-28,Yankees World Series 2024,Sports,Yankee Stadium,Bronx
+2024-10-29,Yankees World Series 2024,Sports,Yankee Stadium,Bronx
+2024-10-30,Yankees World Series 2024,Sports,Yankee Stadium,Bronx
 2024-10-31,Village Halloween Parade,Parades & civic festivals,Greenwich Village/Manhattan route,Manhattan
 2024-11-03,NYC Marathon,Sports,Five-borough route,Multiple boroughs
 2024-12-31,Times Square New Year's Eve,Civic / city event,Times Square,Manhattan
 2025-03-16,NYC Half Marathon,Sports,Manhattan/Brooklyn route,Multiple boroughs
 2025-03-17,St. Patrick's Day Parade,Parades & civic festivals,Fifth Avenue,Manhattan
 2025-03-27,Mets Home Opener,Sports,Citi Field,Queens
+2025-03-27,Yankees Home Opener,Sports,Yankee Stadium,Bronx
 2025-06-06,Governors Ball,Concerts & music festivals,Flushing Meadows Corona Park,Queens
 2025-06-07,Governors Ball,Concerts & music festivals,Flushing Meadows Corona Park,Queens
 2025-06-08,Governors Ball,Concerts & music festivals,Flushing Meadows Corona Park,Queens

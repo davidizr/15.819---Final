@@ -111,7 +111,7 @@ def build_events() -> pd.DataFrame:
         "Multiple boroughs",
     )
 
-    # NY Mets home games — Citi Field, Queens
+    # NY Mets notable home games - Citi Field, Queens
     add_events(
         rows,
         "Mets Home Opener",
@@ -165,17 +165,9 @@ def build_events() -> pd.DataFrame:
     )
     add_events(
         rows,
-        "Mets Wild Card 2024",
-        "Sports",
-        ["2024-10-01", "2024-10-02"],
-        "Citi Field",
-        "Queens",
-    )
-    add_events(
-        rows,
         "Mets NLDS 2024",
         "Sports",
-        ["2024-10-08", "2024-10-09", "2024-10-11"],
+        ["2024-10-08", "2024-10-09"],
         "Citi Field",
         "Queens",
     )
@@ -183,12 +175,113 @@ def build_events() -> pd.DataFrame:
         rows,
         "Mets NLCS 2024",
         "Sports",
-        ["2024-10-17", "2024-10-18", "2024-10-20"],
+        ["2024-10-16", "2024-10-17", "2024-10-18"],
         "Citi Field",
         "Queens",
     )
 
-    # NY Knicks home games — Madison Square Garden, Manhattan
+    # NY Yankees notable home games - Yankee Stadium, Bronx
+    add_events(
+        rows,
+        "Yankees Home Opener",
+        "Sports",
+        [
+            "2015-04-06",
+            "2016-04-05",
+            "2017-04-10",
+            "2018-04-02",
+            "2019-03-28",
+            "2021-04-01",
+            "2022-04-08",
+            "2023-03-30",
+            "2024-04-05",
+            "2025-03-27",
+        ],
+        "Yankee Stadium",
+        "Bronx",
+    )
+    add_events(
+        rows,
+        "Yankees Wild Card 2017",
+        "Sports",
+        ["2017-10-03"],
+        "Yankee Stadium",
+        "Bronx",
+    )
+    add_events(
+        rows,
+        "Yankees ALDS 2017",
+        "Sports",
+        ["2017-10-08", "2017-10-09"],
+        "Yankee Stadium",
+        "Bronx",
+    )
+    add_events(
+        rows,
+        "Yankees ALCS 2017",
+        "Sports",
+        ["2017-10-16", "2017-10-17", "2017-10-18"],
+        "Yankee Stadium",
+        "Bronx",
+    )
+    add_events(
+        rows,
+        "Yankees ALDS 2019",
+        "Sports",
+        ["2019-10-04", "2019-10-05"],
+        "Yankee Stadium",
+        "Bronx",
+    )
+    add_events(
+        rows,
+        "Yankees ALCS 2019",
+        "Sports",
+        ["2019-10-15", "2019-10-17", "2019-10-18"],
+        "Yankee Stadium",
+        "Bronx",
+    )
+    add_events(
+        rows,
+        "Yankees ALDS 2022",
+        "Sports",
+        ["2022-10-11", "2022-10-14", "2022-10-18"],
+        "Yankee Stadium",
+        "Bronx",
+    )
+    add_events(
+        rows,
+        "Yankees ALCS 2022",
+        "Sports",
+        ["2022-10-22", "2022-10-23"],
+        "Yankee Stadium",
+        "Bronx",
+    )
+    add_events(
+        rows,
+        "Yankees ALDS 2024",
+        "Sports",
+        ["2024-10-05", "2024-10-07", "2024-10-12"],
+        "Yankee Stadium",
+        "Bronx",
+    )
+    add_events(
+        rows,
+        "Yankees ALCS 2024",
+        "Sports",
+        ["2024-10-14", "2024-10-15"],
+        "Yankee Stadium",
+        "Bronx",
+    )
+    add_events(
+        rows,
+        "Yankees World Series 2024",
+        "Sports",
+        ["2024-10-28", "2024-10-29", "2024-10-30"],
+        "Yankee Stadium",
+        "Bronx",
+    )
+
+    # NY Knicks notable home games - Madison Square Garden, Manhattan
     add_events(
         rows,
         "Knicks Home Opener",
@@ -216,33 +309,79 @@ def build_events() -> pd.DataFrame:
         "Madison Square Garden",
         "Manhattan",
     )
-    # 2023 R1 vs Cavaliers (home G3, G4); R2 vs Heat (home G1, G2, G5)
+    # 2023 R1 vs Cavaliers; R2 vs Heat, home games only.
     add_events(
         rows,
         "Knicks Playoffs 2023",
         "Sports",
         [
-            "2023-04-20", "2023-04-22",
-            "2023-05-02", "2023-05-04", "2023-05-10",
+            "2023-04-21", "2023-04-23",
+            "2023-04-30", "2023-05-02", "2023-05-10",
         ],
         "Madison Square Garden",
         "Manhattan",
     )
-    # 2024 R1 vs Sixers; R2 vs Pacers; ECF vs Celtics (home games)
+    # 2024 R1 vs Sixers; R2 vs Pacers, home games only.
     add_events(
         rows,
         "Knicks Playoffs 2024",
         "Sports",
         [
             "2024-04-20", "2024-04-22", "2024-04-30",
-            "2024-05-07", "2024-05-09", "2024-05-11", "2024-05-16",
-            "2024-05-21", "2024-05-23", "2024-05-25",
+            "2024-05-06", "2024-05-08", "2024-05-14", "2024-05-19",
         ],
         "Madison Square Garden",
         "Manhattan",
     )
 
-    # NY Rangers home games — Madison Square Garden, Manhattan
+    # Brooklyn Nets notable home games - Barclays Center, Brooklyn
+    add_events(
+        rows,
+        "Nets Home Opener",
+        "Sports",
+        [
+            "2015-10-28",
+            "2016-10-28",
+            "2017-10-20",
+            "2018-10-19",
+            "2019-10-23",
+            "2021-10-24",
+            "2022-10-19",
+            "2023-10-25",
+            "2024-10-27",
+        ],
+        "Barclays Center",
+        "Brooklyn",
+    )
+    add_events(
+        rows,
+        "Nets Playoffs 2021",
+        "Sports",
+        [
+            "2021-05-22", "2021-05-25", "2021-06-01",
+            "2021-06-05", "2021-06-07", "2021-06-15", "2021-06-19",
+        ],
+        "Barclays Center",
+        "Brooklyn",
+    )
+    add_events(
+        rows,
+        "Nets Playoffs 2022",
+        "Sports",
+        ["2022-04-23", "2022-04-25"],
+        "Barclays Center",
+        "Brooklyn",
+    )
+    add_events(
+        rows,
+        "Nets Playoffs 2023",
+        "Sports",
+        ["2023-04-20", "2023-04-22"],
+        "Barclays Center",
+        "Brooklyn",
+    )
+
+    # NY Rangers notable home games - Madison Square Garden, Manhattan
     add_events(
         rows,
         "Rangers Home Opener",
@@ -262,28 +401,28 @@ def build_events() -> pd.DataFrame:
         "Madison Square Garden",
         "Manhattan",
     )
-    # 2022 R1 vs Penguins (home G1, G2, G5, G7); R2 vs Hurricanes; ECF vs Lightning
+    # 2022 R1 vs Penguins; R2 vs Hurricanes; ECF vs Lightning, home games only.
     add_events(
         rows,
         "Rangers Playoffs 2022",
         "Sports",
         [
-            "2022-05-03", "2022-05-05", "2022-05-11", "2022-05-17",
-            "2022-05-26", "2022-05-28",
+            "2022-05-03", "2022-05-05", "2022-05-11", "2022-05-15",
+            "2022-05-22", "2022-05-24", "2022-05-28",
             "2022-06-01", "2022-06-03",
         ],
         "Madison Square Garden",
         "Manhattan",
     )
-    # 2024 R1 vs Capitals; R2 vs Hurricanes; ECF vs Panthers (home games)
+    # 2024 R1 vs Capitals; R2 vs Hurricanes; ECF vs Panthers, home games only.
     add_events(
         rows,
         "Rangers Playoffs 2024",
         "Sports",
         [
-            "2024-04-22", "2024-04-24", "2024-04-30",
+            "2024-04-21", "2024-04-23",
             "2024-05-05", "2024-05-07", "2024-05-13",
-            "2024-05-22", "2024-05-24", "2024-05-28",
+            "2024-05-22", "2024-05-24", "2024-05-30",
         ],
         "Madison Square Garden",
         "Manhattan",
