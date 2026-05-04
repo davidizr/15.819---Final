@@ -470,7 +470,7 @@ def growth_stats(df: pd.DataFrame) -> dict:
     daily["pickup_date"] = pd.to_datetime(daily["pickup_date"])
     daily = daily.sort_values("pickup_date")
     if daily.empty:
-        return {"wow": None, "mom": None, "yoy": None}
+        return {"dod": None, "wow": None, "mom": None, "yoy": None}
 
     last = daily["pickup_date"].max()
 
@@ -481,6 +481,10 @@ def growth_stats(df: pd.DataFrame) -> dict:
     def pct(cur, prev):
         return (cur - prev) / prev if prev else None
 
+    dod = pct(
+        window_sum(last, last),
+        window_sum(last - pd.Timedelta(days=1), last - pd.Timedelta(days=1)),
+    )
     wow = pct(
         window_sum(last - pd.Timedelta(days=6), last),
         window_sum(last - pd.Timedelta(days=13), last - pd.Timedelta(days=7)),
@@ -493,7 +497,7 @@ def growth_stats(df: pd.DataFrame) -> dict:
         window_sum(last - pd.Timedelta(days=364), last),
         window_sum(last - pd.Timedelta(days=729), last - pd.Timedelta(days=365)),
     )
-    return {"wow": wow, "mom": mom, "yoy": yoy}
+    return {"dod": dod, "wow": wow, "mom": mom, "yoy": yoy}
 
 
 def metric_row(df: pd.DataFrame, label_prefix: str) -> None:
@@ -503,18 +507,17 @@ def metric_row(df: pd.DataFrame, label_prefix: str) -> None:
     peak_day = daily.loc[daily["trips"].idxmax()] if not daily.empty else None
     rainy_lift = weather_lift(df)
 
-    col1, col2, col3, col4 = st.columns(4)
+    col1, col2, col3 = st.columns(3)
     col1.metric(f"{label_prefix} trips", fmt_int(total_trips))
     col2.metric("Avg daily trips", fmt_int(avg_daily))
-    col3.metric("Last 7d vs prior 7d", fmt_pct(weekly_delta(daily)))
     if peak_day is not None:
-        col4.metric(
+        col3.metric(
             "Peak day",
             fmt_int(peak_day["trips"]),
             peak_day["pickup_date"].strftime("%b %d, %Y"),
         )
     else:
-        col4.metric("Rainy-day lift", fmt_pct(rainy_lift))
+        col3.metric("Rainy-day lift", fmt_pct(rainy_lift))
 
 
 def weather_lift(df: pd.DataFrame) -> float | None:
@@ -1319,14 +1322,16 @@ with tab_overview:
         arrow = "+" if v >= 0 else "-"
         return f"{arrow} {abs(v):.1%}", color
 
+    g_dod, c_dod = _fmt_growth(gs["dod"])
     g_wow, c_wow = _fmt_growth(gs["wow"])
     g_mom, c_mom = _fmt_growth(gs["mom"])
     g_yoy, c_yoy = _fmt_growth(gs["yoy"])
 
-    gcol1, gcol2, gcol3 = st.columns(3)
-    gcol1.metric("7D vs prior 7D", g_wow)
-    gcol2.metric("30D vs prior 30D", g_mom)
-    gcol3.metric("365D vs prior 365D", g_yoy)
+    gcol1, gcol2, gcol3, gcol4 = st.columns(4)
+    gcol1.metric("DoD", g_dod)
+    gcol2.metric("WoW", g_wow)
+    gcol3.metric("MoM", g_mom)
+    gcol4.metric("YoY", g_yoy)
 
     st.divider()
 
