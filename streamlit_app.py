@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
@@ -287,7 +288,7 @@ def with_period_rolling(df: pd.DataFrame) -> pd.DataFrame:
     return out
 
 
-FORECAST_MODELS = ["SARIMA", "Holt-Winters", "Seasonal naive"]
+FORECAST_MODELS = ["SARIMA", "Holt-Winters", "Regression + seasonality", "Seasonal naive"]
 
 
 def _seasonal_naive_forecast(train_series: pd.Series, steps: int) -> pd.Series:
@@ -324,10 +325,88 @@ def _fit_sarima(train_series: pd.Series, steps: int) -> pd.Series:
     return model.forecast(steps=steps)
 
 
+def _forecast_context_frame(
+    context: pd.DataFrame | None,
+    full_index: pd.DatetimeIndex,
+    forecast_index: pd.DatetimeIndex,
+) -> pd.DataFrame:
+    base = pd.DataFrame({"pickup_date": full_index.union(forecast_index)})
+    if context is not None and not context.empty:
+        context_frame = context.rename(columns={"date": "pickup_date"}).copy()
+        context_frame["pickup_date"] = pd.to_datetime(context_frame["pickup_date"])
+        base = base.merge(context_frame, on="pickup_date", how="left")
+
+    base["weekday_num"] = base["pickup_date"].dt.weekday
+    base["month"] = base["pickup_date"].dt.month
+    base["day_of_year"] = base["pickup_date"].dt.dayofyear
+    for column in ["is_weekend", "is_month_start", "is_month_end", "is_federal_holiday", "has_nyc_event", "has_precipitation"]:
+        if column not in base.columns:
+            base[column] = False
+        base[column] = base[column].fillna(False).astype(bool)
+    for column in ["temperature_avg_f", "precipitation_sum_in"]:
+        if column not in base.columns:
+            base[column] = np.nan
+        climatology = base.groupby("day_of_year")[column].transform("mean")
+        monthly = base.groupby("month")[column].transform("mean")
+        base[column] = base[column].fillna(climatology).fillna(monthly).fillna(base[column].mean()).fillna(0)
+    return base
+
+
+def _regression_features(frame: pd.DataFrame, train_start: pd.Timestamp) -> pd.DataFrame:
+    out = pd.DataFrame(index=frame.index)
+    days = (frame["pickup_date"] - train_start).dt.days.astype(float)
+    out["trend"] = days
+    out["trend_sq"] = days ** 2
+    out["is_weekend"] = frame["is_weekend"].astype(int)
+    out["is_month_start"] = frame["is_month_start"].astype(int)
+    out["is_month_end"] = frame["is_month_end"].astype(int)
+    out["is_federal_holiday"] = frame["is_federal_holiday"].astype(int)
+    out["has_nyc_event"] = frame["has_nyc_event"].astype(int)
+    out["has_precipitation"] = frame["has_precipitation"].astype(int)
+    out["temperature_avg_f"] = frame["temperature_avg_f"].astype(float)
+    out["precipitation_sum_in"] = frame["precipitation_sum_in"].astype(float)
+    for period in [7, 365.25]:
+        angle = 2 * np.pi * days / period
+        suffix = "weekly" if period == 7 else "annual"
+        out[f"sin_{suffix}"] = np.sin(angle)
+        out[f"cos_{suffix}"] = np.cos(angle)
+    weekday_dummies = pd.get_dummies(frame["weekday_num"], prefix="dow", dtype=float)
+    month_dummies = pd.get_dummies(frame["month"], prefix="month", dtype=float)
+    return pd.concat([out, weekday_dummies, month_dummies], axis=1).astype(float)
+
+
+def _fit_regression_forecast(
+    train_series: pd.Series,
+    forecast_index: pd.DatetimeIndex,
+    context: pd.DataFrame | None = None,
+) -> pd.Series:
+    from sklearn.linear_model import RidgeCV
+    from sklearn.pipeline import make_pipeline
+    from sklearn.preprocessing import StandardScaler
+
+    train_start = train_series.index.min()
+    all_frame = _forecast_context_frame(context, train_series.index, forecast_index)
+    features = _regression_features(all_frame, train_start)
+    feature_frame = all_frame[["pickup_date"]].join(features)
+    train_x = feature_frame[feature_frame["pickup_date"].isin(train_series.index)].drop(columns=["pickup_date"])
+    future_x = feature_frame[feature_frame["pickup_date"].isin(forecast_index)].drop(columns=["pickup_date"])
+    train_y = train_series.reindex(
+        feature_frame[feature_frame["pickup_date"].isin(train_series.index)]["pickup_date"]
+    ).values
+    model = make_pipeline(
+        StandardScaler(),
+        RidgeCV(alphas=[0.1, 1.0, 10.0, 100.0, 1000.0]),
+    )
+    model.fit(train_x, train_y)
+    return pd.Series(model.predict(future_x), index=forecast_index)
+
+
 def _fit_forecast_model(
     train_series: pd.Series,
     steps: int,
     model_name: str = "SARIMA",
+    forecast_index: pd.DatetimeIndex | None = None,
+    context: pd.DataFrame | None = None,
 ) -> pd.Series:
     """Fit the selected daily forecasting model."""
     import warnings
@@ -339,6 +418,10 @@ def _fit_forecast_model(
             warnings.simplefilter("ignore")
             if selected == "Holt-Winters":
                 forecast = _fit_holt_winters(train_series, steps)
+            elif selected == "Regression + seasonality":
+                if forecast_index is None:
+                    raise ValueError("Regression forecast requires a forecast index.")
+                forecast = _fit_regression_forecast(train_series, forecast_index, context)
             elif selected == "Seasonal naive":
                 forecast = _seasonal_naive_forecast(train_series, steps)
             else:
@@ -357,6 +440,7 @@ def build_forecast(
     df_full: pd.DataFrame,
     forecast_months: int = 1,
     model_name: str = "SARIMA",
+    context: pd.DataFrame | None = None,
 ):
     """Return (daily_actuals, None, future_forecast) DataFrames."""
 
@@ -382,7 +466,13 @@ def build_forecast(
         return None, None, None
 
     forecast_index = pd.date_range(forecast_start, forecast_end, freq="D")
-    forecast_values = _fit_forecast_model(train_final, len(forecast_index), model_name)
+    forecast_values = _fit_forecast_model(
+        train_final,
+        len(forecast_index),
+        model_name,
+        forecast_index=forecast_index,
+        context=context,
+    )
     future = pd.DataFrame(
         {
             "pickup_date": forecast_index,
@@ -1363,6 +1453,7 @@ with tab_overview:
         forecast_input,
         forecast_months,
         forecast_model,
+        context=tables["context"],
     )
 
     left, right = st.columns((2, 1))
