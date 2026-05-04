@@ -287,42 +287,78 @@ def with_period_rolling(df: pd.DataFrame) -> pd.DataFrame:
     return out
 
 
-def _fit_forecast_model(train_series: pd.Series, steps: int) -> pd.Series:
-    """Fit SARIMA model; fallback to Holt-Winters if needed."""
+FORECAST_MODELS = ["SARIMA", "Holt-Winters", "Seasonal naive"]
+
+
+def _seasonal_naive_forecast(train_series: pd.Series, steps: int) -> pd.Series:
+    pattern = train_series.tail(min(7, len(train_series)))
+    if pattern.empty:
+        return pd.Series([0] * steps)
+    return pd.Series([pattern.iloc[i % len(pattern)] for i in range(steps)])
+
+
+def _fit_holt_winters(train_series: pd.Series, steps: int) -> pd.Series:
+    from statsmodels.tsa.holtwinters import ExponentialSmoothing
+
+    model = ExponentialSmoothing(
+        train_series,
+        trend="add",
+        seasonal="add",
+        seasonal_periods=7,
+        initialization_method="estimated",
+    ).fit(optimized=True)
+    return model.forecast(steps)
+
+
+def _fit_sarima(train_series: pd.Series, steps: int) -> pd.Series:
+    from statsmodels.tsa.statespace.sarimax import SARIMAX
+
+    model = SARIMAX(
+        train_series,
+        order=(1, 1, 1),
+        seasonal_order=(1, 1, 1, 7),
+        trend="c",
+        enforce_stationarity=False,
+        enforce_invertibility=False,
+    ).fit(disp=False)
+    return model.forecast(steps=steps)
+
+
+def _fit_forecast_model(
+    train_series: pd.Series,
+    steps: int,
+    model_name: str = "SARIMA",
+) -> pd.Series:
+    """Fit the selected daily forecasting model."""
     import warnings
 
+    selected = model_name if model_name in FORECAST_MODELS else "SARIMA"
+
     try:
-        from statsmodels.tsa.statespace.sarimax import SARIMAX
-
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            model = SARIMAX(
-                train_series,
-                order=(1, 1, 1),
-                seasonal_order=(1, 1, 1, 7),
-                trend="c",
-                enforce_stationarity=False,
-                enforce_invertibility=False,
-            ).fit(disp=False)
-        forecast = model.forecast(steps=steps)
+            if selected == "Holt-Winters":
+                forecast = _fit_holt_winters(train_series, steps)
+            elif selected == "Seasonal naive":
+                forecast = _seasonal_naive_forecast(train_series, steps)
+            else:
+                forecast = _fit_sarima(train_series, steps)
     except Exception:
-        from statsmodels.tsa.holtwinters import ExponentialSmoothing
-
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            model = ExponentialSmoothing(
-                train_series,
-                trend="add",
-                seasonal="add",
-                seasonal_periods=7,
-                initialization_method="estimated",
-            ).fit(optimized=True)
-        forecast = model.forecast(steps)
+            try:
+                forecast = _fit_holt_winters(train_series, steps)
+            except Exception:
+                forecast = _seasonal_naive_forecast(train_series, steps)
     return forecast.clip(lower=0)
 
 
-def build_forecast(df_full: pd.DataFrame):
-    """Return (daily_actuals, test_pred, future_forecast) DataFrames."""
+def build_forecast(
+    df_full: pd.DataFrame,
+    forecast_months: int = 1,
+    model_name: str = "SARIMA",
+):
+    """Return (daily_actuals, None, future_forecast) DataFrames."""
 
     daily = total_by_day(df_full)
     daily["pickup_date"] = pd.to_datetime(daily["pickup_date"])
@@ -336,39 +372,17 @@ def build_forecast(df_full: pd.DataFrame):
     )
 
     train_start = pd.Timestamp("2021-01-01")
-    eval_train_end = pd.Timestamp("2024-12-31")
-    test_start = pd.Timestamp("2025-01-01")
-    test_end = pd.Timestamp("2026-12-31")
-    final_train_end = pd.Timestamp("2025-12-31")
-    forecast_start = pd.Timestamp("2026-01-01")
-    forecast_end = pd.Timestamp("2027-12-31")
+    final_train_end = series.index.max()
+    forecast_start = final_train_end + pd.Timedelta(days=1)
+    forecast_months = max(1, min(int(forecast_months), 12))
+    forecast_end = forecast_start + pd.DateOffset(months=forecast_months) - pd.Timedelta(days=1)
 
-    # Need enough data to train through 2025 for the final 2026-2027 forecast.
-    if series.index.max() < final_train_end:
-        return None, None, None
-
-    train_eval = series.loc[train_start:eval_train_end]
     train_final = series.loc[train_start:final_train_end]
-    if len(train_eval) < 365 or len(train_final) < 365:
+    if len(train_final) < 365:
         return None, None, None
-
-    # Backtest on 2025-2026 for diagnostics (not plotted on overview chart).
-    test_index = pd.date_range(test_start, test_end, freq="D")
-    test_pred = None
-    if not series.loc[test_start:test_end].empty:
-        test_forecast = _fit_forecast_model(train_eval, len(test_index))
-        test_pred = pd.DataFrame(
-            {
-                "pickup_date": test_index,
-                "trips_forecast": test_forecast.values,
-            }
-        )
-        test_pred = test_pred[
-            test_pred["pickup_date"].between(test_start, min(series.index.max(), test_end))
-        ].reset_index(drop=True)
 
     forecast_index = pd.date_range(forecast_start, forecast_end, freq="D")
-    forecast_values = _fit_forecast_model(train_final, len(forecast_index))
+    forecast_values = _fit_forecast_model(train_final, len(forecast_index), model_name)
     future = pd.DataFrame(
         {
             "pickup_date": forecast_index,
@@ -378,7 +392,7 @@ def build_forecast(df_full: pd.DataFrame):
 
     daily_df = series.reset_index()
     daily_df.columns = ["pickup_date", "trips"]
-    return daily_df, test_pred, future
+    return daily_df, None, future
 
 
 _GRANULARITY_FREQ = {"Daily": "D", "Weekly": "W-MON", "Monthly": "MS", "Yearly": "YS"}
@@ -691,30 +705,16 @@ def line_trend(
             )
         )
 
-    if future_forecast is not None and not future_forecast.empty:
-        forecast_plot = resample_series_for_granularity(
-            future_forecast,
-            granularity,
-            "trips_forecast",
-        )
-        if granularity == "Daily":
+    if granularity == "Daily":
+        if future_forecast is not None and not future_forecast.empty:
+            forecast_plot = future_forecast.sort_values("pickup_date")
             fig.add_trace(
                 go.Scatter(
                     x=forecast_plot["pickup_date"],
                     y=forecast_plot["trips_forecast"],
                     mode="lines",
-                    name="Forecast (2026–2027)",
-                    line=dict(color=POSITIVE_GREEN, width=2.5, dash="dash"),
-                )
-            )
-        else:
-            fig.add_trace(
-                go.Bar(
-                    x=forecast_plot["pickup_date"],
-                    y=forecast_plot["trips_forecast"],
-                    name="Forecast (2026–2027)",
-                    marker_color=POSITIVE_GREEN,
-                    opacity=0.55,
+                    name="Forecast",
+                    line=dict(color=NEUTRAL_GRAY, width=2.5, dash="dash"),
                 )
             )
     if granularity != "Daily":
@@ -770,6 +770,109 @@ def bar_by_group(df: pd.DataFrame, group_col: str, title: str, top_n: int = 12) 
         xaxis_title="Trips",
         yaxis_title=None,
         yaxis=dict(categoryorder="total ascending"),
+    )
+    return fig
+
+
+def comparison_start(latest_date: pd.Timestamp, period_label: str) -> pd.Timestamp:
+    if period_label == "Week":
+        return latest_date - pd.Timedelta(days=6)
+    if period_label == "Month":
+        return latest_date - pd.DateOffset(months=1) + pd.Timedelta(days=1)
+    return latest_date - pd.DateOffset(years=1) + pd.Timedelta(days=1)
+
+
+def build_period_comparison(
+    df: pd.DataFrame,
+    period_label: str,
+    comparison_mode: str,
+) -> tuple[pd.DataFrame, dict]:
+    daily = total_by_day(df)
+    if daily.empty:
+        return pd.DataFrame(), {}
+
+    series = (
+        daily.assign(pickup_date=pd.to_datetime(daily["pickup_date"]))
+        .set_index("pickup_date")["trips"]
+        .sort_index()
+        .asfreq("D", fill_value=0)
+    )
+    current_end = series.index.max().normalize()
+    current_start = comparison_start(current_end, period_label)
+    days = (current_end - current_start).days + 1
+
+    if comparison_mode == "Previous period":
+        comparison_end = current_start - pd.Timedelta(days=1)
+        comparison_start_date = comparison_end - pd.Timedelta(days=days - 1)
+    else:
+        comparison_start_date = current_start - pd.DateOffset(years=1)
+        comparison_end = current_end - pd.DateOffset(years=1)
+
+    def window_frame(start: pd.Timestamp, end: pd.Timestamp, label: str) -> pd.DataFrame:
+        idx = pd.date_range(start, end, freq="D")
+        values = series.reindex(idx, fill_value=0)
+        return pd.DataFrame(
+            {
+                "day": range(1, len(values) + 1),
+                "date": values.index,
+                "period": label,
+                "trips": values.values,
+            }
+        )
+
+    current_label = "Current"
+    comparison_label = comparison_mode
+    chart_df = pd.concat(
+        [
+            window_frame(current_start, current_end, current_label),
+            window_frame(comparison_start_date, comparison_end, comparison_label),
+        ],
+        ignore_index=True,
+    )
+    current_total = series.reindex(pd.date_range(current_start, current_end, freq="D"), fill_value=0).sum()
+    comparison_total = series.reindex(
+        pd.date_range(comparison_start_date, comparison_end, freq="D"),
+        fill_value=0,
+    ).sum()
+    delta = current_total / comparison_total - 1 if comparison_total else None
+    meta = {
+        "current_label": date_window_label(current_start, current_end),
+        "comparison_label": date_window_label(comparison_start_date, comparison_end),
+        "current_total": current_total,
+        "comparison_total": comparison_total,
+        "delta": delta,
+    }
+    return chart_df, meta
+
+
+def period_comparison_chart(chart_df: pd.DataFrame, period_label: str) -> go.Figure:
+    fig = go.Figure()
+    for label, color, width in [
+        ("Current", ACCENT_BLUE, 3),
+        ("Previous period", NEUTRAL_GRAY, 2.5),
+        ("Same period last year", INDIGO, 2.5),
+    ]:
+        period_df = chart_df[chart_df["period"].eq(label)]
+        if period_df.empty:
+            continue
+        fig.add_trace(
+            go.Scatter(
+                x=period_df["day"],
+                y=period_df["trips"],
+                mode="lines",
+                name=label,
+                line=dict(color=color, width=width, dash="solid"),
+                customdata=period_df["date"].dt.strftime("%b %d, %Y"),
+                hovertemplate="Day %{x}<br>%{customdata}<br>Trips: %{y:,.0f}<extra>%{fullData.name}</extra>",
+            )
+        )
+    fig.update_layout(
+        title=f"{period_label} Comparison",
+        height=360,
+        margin=dict(l=10, r=10, t=45, b=10),
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+        xaxis_title=f"Day in {period_label.lower()}",
+        yaxis_title="Trips",
     )
     return fig
 
@@ -1066,10 +1169,14 @@ if min_date < _source_change <= max_date:
 
 st.sidebar.markdown("**Date range**")
 _preset_labels = list(_presets.keys())
+_default_preset = "1M"
+_saved_preset = st.session_state.get(_PRESET_KEY, _default_preset)
+if _saved_preset not in _preset_labels:
+    _saved_preset = _default_preset
 _selected_preset = st.sidebar.radio(
     "Date range",
     _preset_labels,
-    index=_preset_labels.index(st.session_state.get(_PRESET_KEY, "All")),
+    index=_preset_labels.index(_saved_preset),
     key=_PRESET_KEY,
     horizontal=True,
     label_visibility="collapsed",
@@ -1105,8 +1212,8 @@ tab_overview, tab_timing, tab_geo, tab_context = st.tabs(
 with tab_overview:
     metric_row(filtered, "Selected")
 
-    # --- Growth stats row ---
-    gs = growth_stats(filtered)
+    # --- Static growth stats row ---
+    gs = growth_stats(active)
 
     def _fmt_growth(v):
         if v is None:
@@ -1134,8 +1241,32 @@ with tab_overview:
         label_visibility="collapsed",
     )
 
-    # --- Forecast (trained on selected data, 2021–2025) ---
-    _, _, _future_forecast = build_forecast(forecast_input)
+    forecast_months = 1
+    forecast_model = FORECAST_MODELS[0]
+    if granularity == "Daily":
+        horizon_col, model_col = st.columns(2)
+        with horizon_col:
+            forecast_months = st.select_slider(
+                "Forecast horizon",
+                options=list(range(1, 13)),
+                value=1,
+                format_func=lambda months: "1 month" if months == 1 else f"{months} months",
+            )
+        with model_col:
+            forecast_model = st.selectbox(
+                "Forecast model",
+                FORECAST_MODELS,
+                index=0,
+            )
+
+    # --- Daily forecast (trained on selected data from 2021 onward) ---
+    _future_forecast = None
+    if granularity == "Daily":
+        _, _, _future_forecast = build_forecast(
+            forecast_input,
+            forecast_months,
+            forecast_model,
+        )
 
     left, right = st.columns((2, 1))
     with left:
@@ -1176,6 +1307,52 @@ The two sources count differently, so there is a **level discontinuity** at the 
     with right:
         st.plotly_chart(
             bar_by_group(filtered, group_label, f"Trips by {group_name}"),
+            use_container_width=True,
+            config={"displayModeBar": False},
+        )
+
+    st.divider()
+    st.subheader("Period Comparison")
+    period_col, mode_col = st.columns((1, 1.4))
+    with period_col:
+        comparison_period = st.segmented_control(
+            "Period",
+            options=["Week", "Month", "Year"],
+            default="Month",
+            key="overview_comparison_period",
+        )
+    with mode_col:
+        comparison_mode = st.radio(
+            "Compare against",
+            ["Previous period", "Same period last year"],
+            horizontal=True,
+            key="overview_comparison_mode",
+        )
+
+    comparison_df, comparison_meta = build_period_comparison(
+        forecast_input,
+        comparison_period,
+        comparison_mode,
+    )
+    if comparison_df.empty:
+        st.info("No data is available for this comparison.")
+    else:
+        total_col, comparison_col, delta_col = st.columns(3)
+        total_col.metric(
+            f"Current {comparison_period.lower()}",
+            fmt_int(comparison_meta["current_total"]),
+        )
+        comparison_col.metric(
+            comparison_mode,
+            fmt_int(comparison_meta["comparison_total"]),
+        )
+        delta_col.metric("Change", fmt_pct(comparison_meta["delta"]))
+        st.caption(
+            f"Current: {comparison_meta['current_label']} | "
+            f"{comparison_mode}: {comparison_meta['comparison_label']}"
+        )
+        st.plotly_chart(
+            period_comparison_chart(comparison_df, comparison_period),
             use_container_width=True,
             config={"displayModeBar": False},
         )
